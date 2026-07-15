@@ -176,6 +176,7 @@
     font-size: 9.5px; background: #eef1fb; color: #5b6bb0; border-radius: 6px; padding: 1px 6px; white-space: nowrap;
   }
   .log-badge { font-size: 9.5px; background: #e9f7ef; color: #328a5c; border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+  .recur-badge { font-size: 9.5px; background: #fdeee0; color: #b06a1a; border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
 
   /* ---- add row / inline add form ---- */
   .add-row { margin-top: 6px; }
@@ -251,6 +252,9 @@
   .btn-danger:hover { background: #f6cfcb; }
   .btn-secondary { background: #f0eef5; color: #54506a; }
   .btn-secondary:hover { background: #e6e2ee; }
+  .recur-row { display: flex; gap: 8px; align-items: center; }
+  .recur-row input[type="number"] { width: 70px; flex: 0 0 auto; }
+  .recur-row select { flex: 1; }
 
   /* ---- backup & restore ---- */
   .backup-panel { background: #fff; border: 1px solid #e8e8f0; border-radius: 12px; padding: 14px 16px; }
@@ -271,7 +275,7 @@
     background: none; border: none; cursor: pointer; font-size: 18px; padding: 4px 6px; border-radius: 8px; color: #9a8ab5; flex: 0 0 auto;
   }
   .settings-btn:hover { background: #f3ecfa; }
-  .setup-link { font-size: 11.5px; color: #a394b8; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0; margin-top: 10px; }
+  .setup-link { font-size: 11.5px; color: #a394b8; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0; margin-top: 10px; margin-right: 14px; }
 
   @media (max-width: 480px) {
     body { padding: 14px 14px 36px; }
@@ -282,31 +286,41 @@
 </head>
 <body>
 
-<!-- ============== SETUP WIZARD ============== -->
+<!-- ============== SETUP / SETTINGS WIZARD ============== -->
 <div id="setupScreen" style="display:none;">
   <h1>Cassie's Home Base</h1>
-  <div class="subtitle">One-time setup</div>
+  <div class="subtitle" id="setupSubtitle">One-time setup</div>
 
-  <div id="setupStep1" class="setup-card">
+  <div id="setupStepToken" class="setup-card">
     <div class="field-label" style="margin-top:0;">Todoist API token</div>
     <input type="text" id="setupToken" placeholder="Paste your token here" autocapitalize="off" autocorrect="off" spellcheck="false">
-    <div class="hint">In the Todoist app: Settings → Account → API token. It's stored only on this device and sent only to Todoist's API — never anywhere else.</div>
+    <div class="hint">In the Todoist app: Settings → Account → API token. Used only for your regular "My Tasks" list — stored solely on this device.</div>
     <button class="action-btn primary" data-action="setup-connect" style="margin-top:10px;">Connect</button>
     <div id="setupError" class="error" style="display:none; margin-top:8px;"></div>
+    <button class="setup-link" data-action="cancel-setup" id="cancelSetupLink" style="display:none;">Cancel</button>
     <button class="setup-link" data-action="forget-setup">Forget setup on this device</button>
   </div>
 
-  <div id="setupStep2" class="setup-card" style="display:none;">
+  <div id="setupStepImportChoice" class="setup-card" style="display:none;">
+    <div class="field-label" style="margin-top:0;">Import your existing Todoist chores?</div>
+    <div class="hint">Categories and chores live only in this app now — Todoist stays uncluttered. If you've already got chore tasks set up in Todoist, I can copy them in as a starting point (your Todoist tasks are left untouched either way).</div>
+    <div style="display:flex; gap:8px; margin-top:12px;">
+      <button class="action-btn primary" data-action="setup-import-yes" style="flex:1;">Yes, import</button>
+      <button class="action-btn secondary" data-action="setup-import-no" style="flex:1;">Skip</button>
+    </div>
+  </div>
+
+  <div id="setupStepProject" class="setup-card" style="display:none;">
     <div class="field-label" style="margin-top:0;">Which project has your chores?</div>
     <select id="setupProjectSelect"></select>
     <button class="action-btn primary" data-action="setup-pick-project" style="margin-top:10px;">Next</button>
   </div>
 
-  <div id="setupStep3" class="setup-card" style="display:none;">
+  <div id="setupStepSection" class="setup-card" style="display:none;">
     <div class="field-label" style="margin-top:0;">Which section holds your chore categories?</div>
     <select id="setupSectionSelect"></select>
     <div class="hint">The section containing tasks like "House Cleaning", "Bedroom", "Kitchen" — the ones with subtasks under them.</div>
-    <button class="action-btn primary" data-action="setup-finish" style="margin-top:10px;">Finish setup</button>
+    <button class="action-btn primary" data-action="setup-import-run" style="margin-top:10px;">Import &amp; finish</button>
   </div>
 </div>
 
@@ -333,7 +347,7 @@
   <div class="overall-bar-wrap"><div class="overall-bar-fill" id="overallBarFill" style="width:0%"></div></div>
   <div class="overall-pct" id="overallPct">0%</div>
 </div>
-<div id="choreArea" class="chore-grid"><div class="loading">Fetching chores…</div></div>
+<div id="choreArea" class="chore-grid"></div>
 <div class="add-category-wrap" id="addCategoryWrap">
   <button class="ghost-btn" data-action="show-add-category">+ Add category</button>
 </div>
@@ -344,7 +358,7 @@
     <button class="action-btn primary" data-action="export-backup">⬇️ Export backup</button>
     <button class="action-btn secondary" data-action="show-import">⬆️ Import backup</button>
   </div>
-  <div class="hint">Backs up your chore check-off history and logged cleaning time (not your Todoist tasks themselves) to a file you can restore later.</div>
+  <div class="hint">Your categories and chores now live only on this device — this is the only copy. Export regularly and keep the file somewhere safe.</div>
 
   <div id="importPanel" style="display:none; margin-top:12px;">
     <div class="field-label" style="margin-top:0;">Choose a backup file</div>
@@ -364,7 +378,7 @@
   </div>
 </div>
 
-<div class="reload-hint">Data pulled live from Todoist · check-offs and time logs saved on this device</div>
+<div class="reload-hint">Tasks pulled live from Todoist · categories, chores, check-offs and time logs saved only on this device</div>
 
 </div><!-- /appScreen -->
 
@@ -384,9 +398,20 @@
     <div class="field-label">Time estimate</div>
     <input type="text" id="modalDuration" placeholder="e.g. 15m, 1h30m">
 
-    <div class="field-label">Recurring cycle</div>
-    <input type="text" id="modalRecurring" placeholder="e.g. every sunday, every 14 days">
-    <div class="hint">Leave blank for a one-off chore with no repeat.</div>
+    <div class="field-label">Repeats every</div>
+    <div class="recur-row">
+      <input type="number" id="modalRecurEvery" min="0" placeholder="0">
+      <select id="modalRecurUnit">
+        <option value="days">days</option>
+        <option value="weeks">weeks</option>
+        <option value="months">months</option>
+      </select>
+    </div>
+    <div class="hint">Leave the number at 0 (or blank) for a one-off chore with no repeat.</div>
+
+    <div class="field-label">Starting from</div>
+    <input type="date" id="modalStartDate">
+    <div class="hint">Used to work out when the next cycle begins.</div>
 
     <div class="field-label">Time actually spent</div>
     <div id="timelogList"></div>
@@ -407,12 +432,14 @@
 <div class="toast" id="toast"></div>
 
 <script>
-/* ================= Todoist API v1 client ================= */
+/* ================= Todoist API v1 client (My Tasks + one-time import only) ================= */
 const API_BASE = 'https://api.todoist.com/api/v1';
 const TASK_FILTER = '(today | overdue | next 7 days) & !@Cleaning and Chores';
 const LS_CONFIG_KEY = 'cassie_home_base_config_v1';
-const LS_STATE_KEY = 'cassie_home_base_chore_state_v1';
-const LS_TIMELOG_KEY = 'cassie_home_base_timelog_v1';
+const LS_CHORES_DATA_KEY = 'cassie_home_base_chores_data_v2';
+// legacy keys from the Todoist-backed version, read once during import to preserve progress
+const LS_LEGACY_STATE_KEY = 'cassie_home_base_chore_state_v1';
+const LS_LEGACY_TIMELOG_KEY = 'cassie_home_base_timelog_v1';
 
 const CHORE_ICONS = {
   'House Chores': '🪴',
@@ -428,18 +455,15 @@ function loadJson(key, fallback) {
 function getConfig() { return loadJson(LS_CONFIG_KEY, null); }
 function saveConfig(cfg) { localStorage.setItem(LS_CONFIG_KEY, JSON.stringify(cfg)); }
 function getToken() { const c = getConfig(); return c && c.token; }
-function getProjectId() { const c = getConfig(); return c && c.projectId; }
-function getSectionId() { const c = getConfig(); return c && c.sectionId; }
 
-let choreState = loadJson(LS_STATE_KEY, {});   // { [taskId]: { checked: bool, lastDone: isoString|null } }
-let timelog = loadJson(LS_TIMELOG_KEY, {});    // { [taskId]: [{date, minutes}] }
-let taskById = {};
-let childrenByParent = {};
-let categories = [];
-let modalTaskId = null;
+function genId() { return 'c_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
+function todayStr() { return new Date().toISOString().slice(0, 10); }
 
-function saveState() { localStorage.setItem(LS_STATE_KEY, JSON.stringify(choreState)); }
-function saveTimelog() { localStorage.setItem(LS_TIMELOG_KEY, JSON.stringify(timelog)); }
+function loadChoresData() { return loadJson(LS_CHORES_DATA_KEY, { categories: [], chores: [] }); }
+function saveChoresData(data) { localStorage.setItem(LS_CHORES_DATA_KEY, JSON.stringify(data)); }
+
+let categories = [];   // cache of data.categories, refreshed each render, used by the edit modal's select
+let modalChoreId = null;
 
 async function todoistFetch(path, options) {
   options = options || {};
@@ -460,7 +484,6 @@ async function todoistFetch(path, options) {
   const text = await res.text();
   return text ? JSON.parse(text) : null;
 }
-
 async function fetchAllPages(path, params) {
   let out = [];
   let cursor = null;
@@ -527,14 +550,13 @@ function staleness(iso) {
   if (days <= 10) return '';
   return 'stale';
 }
-
 function getDueDateStr(task) {
   if (!task.due) return null;
   return task.due.date || (task.due.datetime ? task.due.datetime.slice(0, 10) : null);
 }
 function fmtDueChip(dueDateStr) {
   if (!dueDateStr) return null;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayStr();
   const d = new Date(dueDateStr + 'T00:00:00');
   const t = new Date(today + 'T00:00:00');
   const diffDays = Math.round((d - t) / 86400000);
@@ -547,9 +569,9 @@ function fmtDueChip(dueDateStr) {
 }
 function priorityLabel(p) {
   if (!p || p <= 1) return null;
-  return 'P' + (5 - p); // API: 4=highest -> P1 ... 1=default -> no label
+  return 'P' + (5 - p);
 }
-function formatDuration(dur) {
+function formatDurationFromTodoist(dur) {
   if (!dur || !dur.amount) return '';
   if (dur.unit === 'day') return dur.amount + 'd';
   const amt = dur.amount;
@@ -557,22 +579,54 @@ function formatDuration(dur) {
   const h = Math.floor(amt / 60), m = amt % 60;
   return h + 'h' + (m ? m + 'm' : '');
 }
-function parseDurationInput(str) {
-  str = (str || '').trim().toLowerCase();
-  if (!str) return null;
-  const dMatch = str.match(/^(\d+)\s*d$/);
-  if (dMatch) return { amount: parseInt(dMatch[1], 10), unit: 'day' };
-  const hMatch = str.match(/(\d+(?:\.\d+)?)\s*h/);
-  const mMatch = str.match(/(\d+)\s*m/);
-  if (!hMatch && !mMatch) {
-    const n = parseFloat(str);
-    return isNaN(n) ? null : { amount: Math.round(n), unit: 'minute' };
-  }
-  const totalMinutes = Math.round((hMatch ? parseFloat(hMatch[1]) * 60 : 0) + (mMatch ? parseInt(mMatch[1], 10) : 0));
-  return totalMinutes > 0 ? { amount: totalMinutes, unit: 'minute' } : null;
+
+/* ---- local recurrence helpers ---- */
+function computeNextDue(chore) {
+  if (!chore.recurEvery || !chore.recurUnit) return null;
+  const base = new Date((chore.lastDone || chore.startDate || todayStr()).slice(0, 10) + 'T00:00:00');
+  const next = new Date(base);
+  if (chore.recurUnit === 'days') next.setDate(next.getDate() + chore.recurEvery);
+  else if (chore.recurUnit === 'weeks') next.setDate(next.getDate() + chore.recurEvery * 7);
+  else if (chore.recurUnit === 'months') next.setMonth(next.getMonth() + chore.recurEvery);
+  return next;
+}
+function recurLabel(chore) {
+  if (!chore.recurEvery || !chore.recurUnit) return '';
+  const n = chore.recurEvery;
+  const unit = chore.recurUnit.replace(/s$/, '');
+  return `every ${n} ${unit}${n === 1 ? '' : 's'}`;
+}
+function applyAutoReset() {
+  const data = loadChoresData();
+  const today = new Date(todayStr() + 'T00:00:00');
+  let changed = false;
+  data.chores.forEach(c => {
+    if (c.checked && c.recurEvery && c.recurUnit) {
+      const next = computeNextDue(c);
+      if (next && today >= next) { c.checked = false; changed = true; }
+    }
+  });
+  if (changed) saveChoresData(data);
 }
 
-/* ---------------- My Tasks ---------------- */
+/* ---- best-effort mapping of a Todoist recurring string to {every, unit} ---- */
+function guessRecurFromTodoist(due) {
+  if (!due || !due.is_recurring || !due.string) return { recurEvery: null, recurUnit: null };
+  const s = due.string.toLowerCase().trim();
+  let m;
+  if ((m = s.match(/^every\s+(\d+)\s+day/))) return { recurEvery: parseInt(m[1], 10), recurUnit: 'days' };
+  if ((m = s.match(/^every\s+(\d+)\s+week/))) return { recurEvery: parseInt(m[1], 10), recurUnit: 'weeks' };
+  if ((m = s.match(/^every\s+(\d+)\s+month/))) return { recurEvery: parseInt(m[1], 10), recurUnit: 'months' };
+  if (s === 'every day') return { recurEvery: 1, recurUnit: 'days' };
+  if (s === 'every week') return { recurEvery: 1, recurUnit: 'weeks' };
+  if (s === 'every month') return { recurEvery: 1, recurUnit: 'months' };
+  if (s.startsWith('every other ')) return { recurEvery: 2, recurUnit: 'weeks' };
+  const weekdays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+  if (weekdays.some(d => s === 'every ' + d)) return { recurEvery: 1, recurUnit: 'weeks' };
+  return { recurEvery: null, recurUnit: null };
+}
+
+/* ---------------- My Tasks (still Todoist-backed) ---------------- */
 
 async function loadTasks() {
   const el = document.getElementById('tasksArea');
@@ -583,7 +637,6 @@ async function loadTasks() {
     el.innerHTML = '<div class="error">Couldn\'t load tasks. Try reloading.</div>';
   }
 }
-
 function renderTasks(tasks) {
   const el = document.getElementById('tasksArea');
   document.getElementById('taskCount').textContent = tasks.length + (tasks.length === 1 ? ' task' : ' tasks');
@@ -602,13 +655,11 @@ function renderTasks(tasks) {
   [groups.overdue, groups.today, groups.upcoming].forEach(g =>
     g.sort((a, b) => (getDueDateStr(a) || '').localeCompare(getDueDateStr(b) || ''))
   );
-
   const sections = [
     { key: 'overdue', label: 'Overdue', cls: 'overdue' },
     { key: 'today', label: 'Today', cls: '' },
     { key: 'upcoming', label: 'Upcoming', cls: '' }
   ];
-
   el.innerHTML = sections
     .filter(s => groups[s.key].length)
     .map(s => {
@@ -631,7 +682,6 @@ function renderTasks(tasks) {
         </div>`;
     }).join('');
 }
-
 async function onCompleteTask(box) {
   const id = box.dataset.id;
   const row = box.closest('.task-row');
@@ -649,71 +699,59 @@ async function onCompleteTask(box) {
   }
 }
 
-/* ---------------- House Cleaning ---------------- */
+/* ---------------- House Cleaning (fully local) ---------------- */
 
-async function loadChores() {
-  const el = document.getElementById('choreArea');
-  try {
-    const tasks = await fetchAllPages('/tasks', { section_id: getSectionId() });
-    renderChores(tasks);
-  } catch (e) {
-    el.innerHTML = '<div class="error">Couldn\'t load chores. Try reloading.</div>';
-  }
+function loadChores() {
+  applyAutoReset();
+  renderChores();
 }
 
-function renderChores(tasks) {
+function renderChores() {
   const el = document.getElementById('choreArea');
-  taskById = {};
-  tasks.forEach(t => { taskById[t.id] = t; });
-
-  const parents = tasks.filter(t => !t.parent_id);
-  categories = parents.map(p => ({ id: p.id, content: p.content }));
-  childrenByParent = {};
-  tasks.filter(t => t.parent_id).forEach(t => {
-    (childrenByParent[t.parent_id] = childrenByParent[t.parent_id] || []).push(t);
-  });
+  const data = loadChoresData();
+  categories = data.categories;
+  const todayStrVal = todayStr();
 
   let totalSubs = 0, totalChecked = 0;
-  const todayStr = new Date().toISOString().slice(0, 10);
 
-  const cards = parents.map(p => {
-    const subs = childrenByParent[p.id] || [];
-    const icon = CHORE_ICONS[p.content] || '🧹';
+  const cards = categories.map(cat => {
+    const subs = data.chores.filter(c => c.categoryId === cat.id);
+    const icon = CHORE_ICONS[cat.name] || '🧹';
     const headActions = `
       <div class="head-actions">
-        <button class="icon-btn" data-action="rename-cat" data-id="${p.id}" title="Rename category">✏️</button>
-        <button class="icon-btn danger" data-action="delete-cat" data-id="${p.id}" title="Delete category">🗑</button>
-        <button class="reset-btn" data-action="reset-card" data-id="${p.id}">New cycle</button>
+        <button class="icon-btn" data-action="rename-cat" data-id="${cat.id}" title="Rename category">✏️</button>
+        <button class="icon-btn danger" data-action="delete-cat" data-id="${cat.id}" title="Delete category">🗑</button>
+        <button class="reset-btn" data-action="reset-card" data-id="${cat.id}">New cycle</button>
       </div>`;
 
     if (!subs.length) {
       return `
         <div class="chore-card">
           <div class="chore-card-head">
-            <div class="chore-card-title"><span>${icon}</span><span class="cat-title-text" id="cat-title-${p.id}">${escapeHtml(p.content)}</span></div>
+            <div class="chore-card-title"><span>${icon}</span><span class="cat-title-text" id="cat-title-${cat.id}">${escapeHtml(cat.name)}</span></div>
             ${headActions}
           </div>
           <div class="no-subs">No chores added under this yet.</div>
-          <div class="add-row"><button class="ghost-btn" data-action="show-add-task" data-id="${p.id}">+ Add chore</button></div>
+          <div class="add-row"><button class="ghost-btn" data-action="show-add-task" data-id="${cat.id}">+ Add chore</button></div>
         </div>`;
     }
 
     let checkedCount = 0;
     const subRows = subs.map(s => {
-      const state = choreState[s.id] || { checked: false, lastDone: null };
-      if (state.checked) checkedCount++;
-      const stale = staleness(state.lastDone);
-      const durStr = formatDuration(s.duration);
-      const estBadge = durStr ? `<span class="est-badge" title="Time estimate">⏱ ${escapeHtml(durStr)}</span>` : '';
-      const todaysMinutes = (timelog[s.id] || []).filter(l => l.date === todayStr).reduce((sum, l) => sum + l.minutes, 0);
+      if (s.checked) checkedCount++;
+      const stale = staleness(s.lastDone);
+      const estBadge = s.duration ? `<span class="est-badge" title="Time estimate">⏱ ${escapeHtml(s.duration)}</span>` : '';
+      const recur = recurLabel(s);
+      const recurBadge = recur ? `<span class="recur-badge" title="Recurring cycle">🔁 ${escapeHtml(recur)}</span>` : '';
+      const todaysMinutes = (s.timelog || []).filter(l => l.date === todayStrVal).reduce((sum, l) => sum + l.minutes, 0);
       const logBadge = todaysMinutes ? `<span class="log-badge" title="Logged today">✅ ${todaysMinutes}m</span>` : '';
-      const noteBadge = s.description ? `<span class="est-badge" title="${escapeHtml(s.description)}">📝</span>` : '';
+      const noteBadge = s.notes ? `<span class="est-badge" title="${escapeHtml(s.notes)}">📝</span>` : '';
       return `
         <div class="sub-row" data-id="${s.id}">
-          <div class="sub-checkbox ${state.checked ? 'checked' : ''}" data-action="toggle-sub" data-id="${p.id}:${s.id}">${state.checked ? '✓' : ''}</div>
-          <div class="sub-name ${state.checked ? 'checked' : ''}">${escapeHtml(s.content)}</div>
-          <div class="badge-row">${estBadge}${logBadge}${noteBadge}</div>
-          <div class="last-cleaned ${stale}">${fmtRelative(state.lastDone)}</div>
+          <div class="sub-checkbox ${s.checked ? 'checked' : ''}" data-action="toggle-sub" data-id="${s.id}">${s.checked ? '✓' : ''}</div>
+          <div class="sub-name ${s.checked ? 'checked' : ''}">${escapeHtml(s.name)}</div>
+          <div class="badge-row">${estBadge}${recurBadge}${logBadge}${noteBadge}</div>
+          <div class="last-cleaned ${stale}">${fmtRelative(s.lastDone)}</div>
           <button class="icon-btn" data-action="edit-task" data-id="${s.id}" title="Edit chore">✏️</button>
         </div>`;
     }).join('');
@@ -723,16 +761,16 @@ function renderChores(tasks) {
     return `
       <div class="chore-card">
         <div class="chore-card-head">
-          <div class="chore-card-title"><span>${icon}</span><span class="cat-title-text" id="cat-title-${p.id}">${escapeHtml(p.content)}</span></div>
+          <div class="chore-card-title"><span>${icon}</span><span class="cat-title-text" id="cat-title-${cat.id}">${escapeHtml(cat.name)}</span></div>
           ${headActions}
         </div>
         <div class="chore-bar-wrap"><div class="chore-bar-fill" style="width:${pct}%"></div></div>
         ${subRows}
-        <div class="add-row"><button class="ghost-btn" data-action="show-add-task" data-id="${p.id}">+ Add chore</button></div>
+        <div class="add-row"><button class="ghost-btn" data-action="show-add-task" data-id="${cat.id}">+ Add chore</button></div>
       </div>`;
   }).join('');
 
-  el.innerHTML = cards || '<div class="empty-note">No categories yet. Add one below.</div>';
+  el.innerHTML = cards || '<div class="empty-note">No categories yet. Add one below, or import from Todoist via Settings.</div>';
 
   const overallPct = totalSubs ? Math.round((totalChecked / totalSubs) * 100) : 0;
   document.getElementById('overallBarFill').style.width = overallPct + '%';
@@ -742,21 +780,20 @@ function renderChores(tasks) {
     : 'Add chores to start tracking';
 }
 
-function onToggleSub(dataId) {
-  const [, subId] = dataId.split(':');
-  const state = choreState[subId] || { checked: false, lastDone: null };
-  state.checked = !state.checked;
-  if (state.checked) state.lastDone = new Date().toISOString();
-  choreState[subId] = state;
-  saveState();
-  loadChores();
+function onToggleSub(choreId) {
+  const data = loadChoresData();
+  const chore = data.chores.find(c => c.id === choreId);
+  if (!chore) return;
+  chore.checked = !chore.checked;
+  if (chore.checked) chore.lastDone = new Date().toISOString();
+  saveChoresData(data);
+  renderChores();
 }
-
-function onResetCard(cardId) {
-  const kids = childrenByParent[cardId] || [];
-  kids.forEach(k => { if (choreState[k.id]) choreState[k.id].checked = false; });
-  saveState();
-  loadChores();
+function onResetCard(categoryId) {
+  const data = loadChoresData();
+  data.chores.forEach(c => { if (c.categoryId === categoryId) c.checked = false; });
+  saveChoresData(data);
+  renderChores();
 }
 
 /* ---- category rename / delete ---- */
@@ -775,38 +812,30 @@ function startRenameCategory(id) {
   input.select();
 
   let settled = false;
-  const commit = async () => {
+  const commit = () => {
     if (settled) return;
     settled = true;
     const newName = input.value.trim();
-    if (!newName || newName === current) { loadChores(); return; }
-    try {
-      await todoistFetch(`/tasks/${id}`, { method: 'POST', body: { content: newName } });
-      showToast('Category renamed');
-    } catch (e) {
-      showToast('Could not rename — try again', true);
+    if (newName && newName !== current) {
+      const data = loadChoresData();
+      const cat = data.categories.find(c => c.id === id);
+      if (cat) { cat.name = newName; saveChoresData(data); showToast('Category renamed'); }
     }
-    loadChores();
+    renderChores();
   };
   input.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); commit(); }
-    if (e.key === 'Escape') { settled = true; loadChores(); }
+    if (e.key === 'Escape') { settled = true; renderChores(); }
   });
   input.addEventListener('blur', commit);
 }
-
-async function deleteCategoryConfirmed(id) {
-  const kids = childrenByParent[id] || [];
-  try {
-    for (const k of kids) {
-      await todoistFetch(`/tasks/${k.id}`, { method: 'DELETE' });
-    }
-    await todoistFetch(`/tasks/${id}`, { method: 'DELETE' });
-    showToast('Category deleted');
-  } catch (e) {
-    showToast('Delete failed — try again', true);
-  }
-  loadChores();
+function deleteCategoryConfirmed(id) {
+  const data = loadChoresData();
+  data.categories = data.categories.filter(c => c.id !== id);
+  data.chores = data.chores.filter(c => c.categoryId !== id);
+  saveChoresData(data);
+  showToast('Category deleted');
+  renderChores();
 }
 
 /* ---- add category / add chore (inline forms) ---- */
@@ -825,57 +854,61 @@ function restoreAddCategoryButton() {
   document.getElementById('addCategoryWrap').innerHTML =
     '<button class="ghost-btn" data-action="show-add-category">+ Add category</button>';
 }
-async function submitAddCategory() {
+function submitAddCategory() {
   const wrap = document.getElementById('addCategoryWrap');
   const input = wrap.querySelector('.inline-add-input');
   const name = input ? input.value.trim() : '';
-  if (!name) { restoreAddCategoryButton(); return; }
-  try {
-    await todoistFetch('/tasks', { method: 'POST', body: { content: name, project_id: getProjectId(), section_id: getSectionId() } });
+  if (name) {
+    const data = loadChoresData();
+    data.categories.push({ id: genId(), name });
+    saveChoresData(data);
     showToast('Category added');
-  } catch (e) {
-    showToast('Could not add category', true);
   }
   restoreAddCategoryButton();
-  loadChores();
+  renderChores();
 }
-
 function showAddTaskForm(btn) {
   const wrap = btn.closest('.add-row');
-  const parentId = btn.dataset.id;
+  const catId = btn.dataset.id;
   wrap.innerHTML = `
     <div class="inline-form">
       <input type="text" class="inline-add-input" placeholder="Chore name">
-      <button class="save-btn" data-action="submit-add-task" data-parent="${parentId}">Add</button>
-      <button class="cancel-btn" data-action="cancel-add-task" data-parent="${parentId}">Cancel</button>
+      <button class="save-btn" data-action="submit-add-task" data-parent="${catId}">Add</button>
+      <button class="cancel-btn" data-action="cancel-add-task" data-parent="${catId}">Cancel</button>
     </div>`;
   wrap.querySelector('.inline-add-input').focus();
 }
-async function submitAddTask(parentId, wrap) {
+function submitAddTask(categoryId, wrap) {
   const input = wrap.querySelector('.inline-add-input');
   const name = input ? input.value.trim() : '';
-  if (!name) { loadChores(); return; }
-  try {
-    await todoistFetch('/tasks', { method: 'POST', body: { content: name, project_id: getProjectId(), section_id: getSectionId(), parent_id: parentId } });
+  if (name) {
+    const data = loadChoresData();
+    data.chores.push({
+      id: genId(), categoryId, name, notes: '', duration: '',
+      recurEvery: null, recurUnit: null, startDate: todayStr(),
+      checked: false, lastDone: null, timelog: []
+    });
+    saveChoresData(data);
     showToast('Chore added');
-  } catch (e) {
-    showToast('Could not add chore', true);
   }
-  loadChores();
+  renderChores();
 }
 
 /* ---- task edit modal ---- */
 
 function openTaskModal(id) {
-  const task = taskById[id];
-  if (!task) return;
-  modalTaskId = id;
-  document.getElementById('modalName').value = task.content || '';
-  populateCategorySelect(task.parent_id);
-  document.getElementById('modalNotes').value = task.description || '';
-  document.getElementById('modalDuration').value = formatDuration(task.duration);
-  document.getElementById('modalRecurring').value = (task.due && task.due.is_recurring) ? (task.due.string || '') : '';
-  document.getElementById('timelogDate').value = new Date().toISOString().slice(0, 10);
+  const data = loadChoresData();
+  const chore = data.chores.find(c => c.id === id);
+  if (!chore) return;
+  modalChoreId = id;
+  document.getElementById('modalName').value = chore.name || '';
+  populateCategorySelect(chore.categoryId);
+  document.getElementById('modalNotes').value = chore.notes || '';
+  document.getElementById('modalDuration').value = chore.duration || '';
+  document.getElementById('modalRecurEvery').value = chore.recurEvery || '';
+  document.getElementById('modalRecurUnit').value = chore.recurUnit || 'weeks';
+  document.getElementById('modalStartDate').value = chore.startDate || todayStr();
+  document.getElementById('timelogDate').value = todayStr();
   document.getElementById('timelogMinutes').value = '';
   renderTimelogList(id);
   const delBtn = document.querySelector('#taskModalOverlay [data-action="delete-task"]');
@@ -886,18 +919,18 @@ function openTaskModal(id) {
 }
 function closeModal() {
   document.getElementById('taskModalOverlay').classList.remove('open');
-  modalTaskId = null;
+  modalChoreId = null;
 }
-
-function populateCategorySelect(currentParentId) {
+function populateCategorySelect(currentCategoryId) {
   const sel = document.getElementById('modalCategory');
   sel.innerHTML = categories.map(c =>
-    `<option value="${c.id}" ${c.id === currentParentId ? 'selected' : ''}>${escapeHtml(c.content)}</option>`
+    `<option value="${c.id}" ${c.id === currentCategoryId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`
   ).join('');
 }
-
-function renderTimelogList(taskId) {
-  const logs = timelog[taskId] || [];
+function renderTimelogList(choreId) {
+  const data = loadChoresData();
+  const chore = data.chores.find(c => c.id === choreId);
+  const logs = (chore && chore.timelog) || [];
   const el = document.getElementById('timelogList');
   if (!logs.length) { el.innerHTML = '<div class="hint">No logged sessions yet.</div>'; return; }
   el.innerHTML = logs.slice().reverse().map(l => {
@@ -910,82 +943,66 @@ function renderTimelogList(taskId) {
       </div>`;
   }).join('');
 }
-
-async function saveTaskFromModal() {
-  if (!modalTaskId) return;
-  const content = document.getElementById('modalName').value.trim();
-  const description = document.getElementById('modalNotes').value;
-  const durationStr = document.getElementById('modalDuration').value.trim();
-  const recurring = document.getElementById('modalRecurring').value.trim();
-  if (!content) { showToast('Name cannot be empty', true); return; }
-  const task = taskById[modalTaskId] || {};
-  const payload = { content, description };
-  const durParsed = parseDurationInput(durationStr);
-  if (durParsed) { payload.duration = durParsed.amount; payload.duration_unit = durParsed.unit; }
-  if (recurring) payload.due_string = recurring;
-
-  let warning = null;
-  try {
-    await todoistFetch(`/tasks/${modalTaskId}`, { method: 'POST', body: payload });
-
-    if (!recurring && task.due) {
-      try {
-        await todoistFetch(`/tasks/${modalTaskId}`, { method: 'POST', body: { due_string: '' } });
-      } catch (e) {
-        warning = "Saved, but couldn't clear the recurring date — clear it directly in Todoist.";
-      }
-    }
-
-    const newParentId = document.getElementById('modalCategory').value;
-    if (newParentId && newParentId !== task.parent_id) {
-      await todoistFetch(`/tasks/${modalTaskId}/move`, { method: 'POST', body: { parent_id: newParentId } });
-    }
-
-    showToast(warning || 'Chore updated', !!warning);
-    closeModal();
-  } catch (e) {
-    showToast('Could not save changes', true);
-  }
-  loadChores();
+function saveTaskFromModal() {
+  if (!modalChoreId) return;
+  const name = document.getElementById('modalName').value.trim();
+  if (!name) { showToast('Name cannot be empty', true); return; }
+  const data = loadChoresData();
+  const chore = data.chores.find(c => c.id === modalChoreId);
+  if (!chore) return;
+  chore.name = name;
+  chore.categoryId = document.getElementById('modalCategory').value || chore.categoryId;
+  chore.notes = document.getElementById('modalNotes').value;
+  chore.duration = document.getElementById('modalDuration').value.trim();
+  const recurEveryVal = parseInt(document.getElementById('modalRecurEvery').value, 10);
+  const recurUnitVal = document.getElementById('modalRecurUnit').value;
+  if (recurEveryVal > 0 && recurUnitVal) { chore.recurEvery = recurEveryVal; chore.recurUnit = recurUnitVal; }
+  else { chore.recurEvery = null; chore.recurUnit = null; }
+  chore.startDate = document.getElementById('modalStartDate').value || chore.startDate || todayStr();
+  saveChoresData(data);
+  showToast('Chore updated');
+  closeModal();
+  renderChores();
 }
-
-async function deleteTaskFromModal() {
-  if (!modalTaskId) return;
-  try {
-    await todoistFetch(`/tasks/${modalTaskId}`, { method: 'DELETE' });
-    showToast('Chore deleted');
-    closeModal();
-  } catch (e) {
-    showToast('Could not delete', true);
-  }
-  loadChores();
+function deleteTaskFromModal() {
+  if (!modalChoreId) return;
+  const data = loadChoresData();
+  data.chores = data.chores.filter(c => c.id !== modalChoreId);
+  saveChoresData(data);
+  showToast('Chore deleted');
+  closeModal();
+  renderChores();
 }
-
 function addTimelogFromModal() {
-  if (!modalTaskId) return;
-  const date = document.getElementById('timelogDate').value || new Date().toISOString().slice(0, 10);
+  if (!modalChoreId) return;
+  const date = document.getElementById('timelogDate').value || todayStr();
   const minutes = parseInt(document.getElementById('timelogMinutes').value, 10);
   if (!minutes || minutes <= 0) { showToast('Enter minutes first', true); return; }
-  timelog[modalTaskId] = timelog[modalTaskId] || [];
-  timelog[modalTaskId].push({ date, minutes });
-  saveTimelog();
+  const data = loadChoresData();
+  const chore = data.chores.find(c => c.id === modalChoreId);
+  if (!chore) return;
+  chore.timelog = chore.timelog || [];
+  chore.timelog.push({ date, minutes });
+  saveChoresData(data);
   document.getElementById('timelogMinutes').value = '';
-  renderTimelogList(modalTaskId);
+  renderTimelogList(modalChoreId);
   showToast('Logged');
 }
 function removeTimelogEntry(idx) {
-  if (!modalTaskId) return;
-  const arr = timelog[modalTaskId] || [];
-  arr.splice(idx, 1);
-  timelog[modalTaskId] = arr;
-  saveTimelog();
-  renderTimelogList(modalTaskId);
+  if (!modalChoreId) return;
+  const data = loadChoresData();
+  const chore = data.chores.find(c => c.id === modalChoreId);
+  if (!chore) return;
+  (chore.timelog || []).splice(idx, 1);
+  saveChoresData(data);
+  renderTimelogList(modalChoreId);
 }
 
-/* ---- backup & restore ---- */
+/* ---- backup & restore (full local dataset) ---- */
 
 function buildBackupPayload() {
-  return { app: 'cassie-home-base', version: 1, exportedAt: new Date().toISOString(), choreState, timelog };
+  const data = loadChoresData();
+  return { app: 'cassie-home-base', version: 2, exportedAt: new Date().toISOString(), categories: data.categories, chores: data.chores };
 }
 function exportBackup() {
   const json = JSON.stringify(buildBackupPayload(), null, 2);
@@ -995,7 +1012,7 @@ function exportBackup() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `cassie-home-base-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `cassie-home-base-backup-${todayStr()}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -1035,27 +1052,30 @@ function doRestoreBackup() {
   if (!raw) { showToast('Choose a file or paste backup JSON first', true); return; }
   let parsed;
   try { parsed = JSON.parse(raw); } catch (e) { showToast("That doesn't look like valid JSON", true); return; }
-  if (!parsed || typeof parsed !== 'object') { showToast('Invalid backup file', true); return; }
-  choreState = (parsed.choreState && typeof parsed.choreState === 'object') ? parsed.choreState : {};
-  timelog = (parsed.timelog && typeof parsed.timelog === 'object') ? parsed.timelog : {};
-  saveState();
-  saveTimelog();
+  if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.categories) || !Array.isArray(parsed.chores)) {
+    showToast('Invalid or outdated backup file (needs a v2 backup)', true);
+    return;
+  }
+  saveChoresData({ categories: parsed.categories, chores: parsed.chores });
   hideImportPanel();
-  loadChores();
+  renderChores();
   showToast('Backup restored');
 }
 
-/* ---- setup wizard ---- */
+/* ---- setup / settings wizard ---- */
 
 function showSetup() {
   document.getElementById('appScreen').style.display = 'none';
   document.getElementById('setupScreen').style.display = 'block';
-  document.getElementById('setupStep1').style.display = 'block';
-  document.getElementById('setupStep2').style.display = 'none';
-  document.getElementById('setupStep3').style.display = 'none';
+  document.getElementById('setupStepToken').style.display = 'block';
+  document.getElementById('setupStepImportChoice').style.display = 'none';
+  document.getElementById('setupStepProject').style.display = 'none';
+  document.getElementById('setupStepSection').style.display = 'none';
   document.getElementById('setupError').style.display = 'none';
   const cfg = getConfig();
   document.getElementById('setupToken').value = (cfg && cfg.token) || '';
+  document.getElementById('cancelSetupLink').style.display = (cfg && cfg.token) ? 'inline' : 'none';
+  document.getElementById('setupSubtitle').textContent = (cfg && cfg.token) ? 'Settings' : 'One-time setup';
 }
 function showApp() {
   document.getElementById('setupScreen').style.display = 'none';
@@ -1064,26 +1084,40 @@ function showApp() {
 }
 function boot() {
   const cfg = getConfig();
-  if (cfg && cfg.token && cfg.projectId && cfg.sectionId) showApp();
+  if (cfg && cfg.token) showApp();
   else showSetup();
 }
+function cancelSetup() { showApp(); }
 
 async function setupConnect() {
   const token = document.getElementById('setupToken').value.trim();
   const errEl = document.getElementById('setupError');
   errEl.style.display = 'none';
   if (!token) return;
-  saveConfig({ token });
+  const prevCfg = getConfig() || {};
+  saveConfig({ ...prevCfg, token });
   try {
-    const projects = await fetchAllPages('/projects', {});
-    if (!projects.length) throw new Error('no projects');
-    document.getElementById('setupProjectSelect').innerHTML =
-      projects.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
-    document.getElementById('setupStep1').style.display = 'none';
-    document.getElementById('setupStep2').style.display = 'block';
+    // quick validation call
+    await fetchAllPages('/projects', {});
+    document.getElementById('setupStepToken').style.display = 'none';
+    document.getElementById('setupStepImportChoice').style.display = 'block';
   } catch (e) {
     errEl.textContent = 'Could not connect — double-check the token and try again.';
     errEl.style.display = 'block';
+  }
+}
+function setupImportNo() { setupFinish(); }
+async function setupImportYes() {
+  try {
+    const projects = await fetchAllPages('/projects', {});
+    if (!projects.length) { showToast('No projects found on that account', true); return; }
+    const cfg = getConfig();
+    document.getElementById('setupProjectSelect').innerHTML =
+      projects.map(p => `<option value="${p.id}" ${cfg && p.id === cfg.projectId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`).join('');
+    document.getElementById('setupStepImportChoice').style.display = 'none';
+    document.getElementById('setupStepProject').style.display = 'block';
+  } catch (e) {
+    showToast('Could not load projects', true);
   }
 }
 async function setupPickProject() {
@@ -1098,19 +1132,71 @@ async function setupPickProject() {
     const sectionsList = await fetchAllPages('/sections', { project_id: projectId });
     if (!sectionsList.length) { showToast('That project has no sections — pick one that does', true); return; }
     document.getElementById('setupSectionSelect').innerHTML =
-      sectionsList.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
-    document.getElementById('setupStep2').style.display = 'none';
-    document.getElementById('setupStep3').style.display = 'block';
+      sectionsList.map(s => `<option value="${s.id}" ${cfg && s.id === cfg.sectionId ? 'selected' : ''}>${escapeHtml(s.name)}</option>`).join('');
+    document.getElementById('setupStepProject').style.display = 'none';
+    document.getElementById('setupStepSection').style.display = 'block';
   } catch (e) {
     showToast('Could not load sections', true);
   }
 }
-function setupFinish() {
+async function setupImportRun() {
   const sel = document.getElementById('setupSectionSelect');
+  const sectionId = sel.value;
   const cfg = getConfig();
-  cfg.sectionId = sel.value;
+  cfg.sectionId = sectionId;
   cfg.sectionName = sel.options[sel.selectedIndex].textContent;
   saveConfig(cfg);
+  try {
+    const tasks = await fetchAllPages('/tasks', { section_id: sectionId });
+    importTodoistChoreTasks(tasks);
+    showToast('Imported from Todoist');
+  } catch (e) {
+    showToast('Import failed — you can try again later from Settings', true);
+  }
+  setupFinish();
+}
+function importTodoistChoreTasks(tasks) {
+  const legacyState = loadJson(LS_LEGACY_STATE_KEY, {});
+  const legacyTimelog = loadJson(LS_LEGACY_TIMELOG_KEY, {});
+  const parents = tasks.filter(t => !t.parent_id);
+  const childrenByParent = {};
+  tasks.filter(t => t.parent_id).forEach(t => (childrenByParent[t.parent_id] = childrenByParent[t.parent_id] || []).push(t));
+
+  const data = loadChoresData();
+  const nameToCatId = {};
+  data.categories.forEach(c => { nameToCatId[c.name] = c.id; });
+
+  parents.forEach(p => {
+    let catId = nameToCatId[p.content];
+    if (!catId) {
+      catId = genId();
+      data.categories.push({ id: catId, name: p.content });
+      nameToCatId[p.content] = catId;
+    }
+    const kids = childrenByParent[p.id] || [];
+    kids.forEach(k => {
+      const alreadyImported = data.chores.some(c => c.categoryId === catId && c.name === k.content);
+      if (alreadyImported) return;
+      const recur = guessRecurFromTodoist(k.due);
+      const legacy = legacyState[k.id] || {};
+      data.chores.push({
+        id: genId(),
+        categoryId: catId,
+        name: k.content,
+        notes: k.description || '',
+        duration: formatDurationFromTodoist(k.duration),
+        recurEvery: recur.recurEvery,
+        recurUnit: recur.recurUnit,
+        startDate: todayStr(),
+        checked: !!legacy.checked,
+        lastDone: legacy.lastDone || null,
+        timelog: legacyTimelog[k.id] || []
+      });
+    });
+  });
+  saveChoresData(data);
+}
+function setupFinish() {
   showApp();
 }
 function forgetSetup() {
@@ -1137,7 +1223,7 @@ document.body.addEventListener('click', (e) => {
     case 'cancel-add-category': restoreAddCategoryButton(); break;
     case 'show-add-task': showAddTaskForm(t); break;
     case 'submit-add-task': submitAddTask(t.dataset.parent, t.closest('.add-row')); break;
-    case 'cancel-add-task': loadChores(); break;
+    case 'cancel-add-task': renderChores(); break;
     case 'close-modal': closeModal(); break;
     case 'save-task': saveTaskFromModal(); break;
     case 'delete-task': armConfirm(t, () => deleteTaskFromModal(), 'Sure?'); break;
@@ -1150,8 +1236,11 @@ document.body.addEventListener('click', (e) => {
     case 'copy-export': copyExportText(); break;
     case 'open-settings': showSetup(); break;
     case 'setup-connect': setupConnect(); break;
+    case 'setup-import-yes': setupImportYes(); break;
+    case 'setup-import-no': setupImportNo(); break;
     case 'setup-pick-project': setupPickProject(); break;
-    case 'setup-finish': setupFinish(); break;
+    case 'setup-import-run': setupImportRun(); break;
+    case 'cancel-setup': cancelSetup(); break;
     case 'forget-setup': armConfirm(t, () => forgetSetup(), 'Sure?'); break;
   }
 });
@@ -1169,7 +1258,8 @@ document.getElementById('importFile').addEventListener('change', (e) => {
 
 async function init() {
   document.getElementById('subtitle').textContent = 'Live from Todoist · last refreshed ' + new Date().toLocaleTimeString();
-  await Promise.all([loadTasks(), loadChores()]);
+  loadChores();
+  await loadTasks();
 }
 
 boot();
