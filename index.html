@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#8a5cd6">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Cassie's Home Base</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #f7f7fb;
+    color: #2b2b33;
+    padding: 20px 24px 40px;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .subtitle { color: #7a7a88; font-size: 13px; margin-bottom: 20px; }
+  .top-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .section-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 28px 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title:first-of-type { margin-top: 0; }
+  .pill {
+    font-size: 11px;
+    font-weight: 600;
+    color: #7a7a88;
+    background: #ececf4;
+    border-radius: 999px;
+    padding: 2px 9px;
+  }
+
+  /* ---- Tasks section ---- */
+  .task-groups { display: flex; flex-direction: column; gap: 14px; }
+  .task-group { background: #fff; border: 1px solid #e8e8f0; border-radius: 12px; overflow: hidden; }
+  .task-group-header {
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    color: #545464;
+    background: #fafafc;
+    border-bottom: 1px solid #eeeef4;
+  }
+  .task-group-header.overdue { color: #b3261e; }
+  .task-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    border-bottom: 1px solid #f2f2f7;
+    font-size: 13.5px;
+  }
+  .task-row:last-child { border-bottom: none; }
+  .task-row.done { opacity: 0.4; }
+  .task-row.done .task-content { text-decoration: line-through; }
+  .checkbox {
+    width: 17px; height: 17px; border-radius: 50%;
+    border: 1.5px solid #c6c6d6;
+    flex: 0 0 auto;
+    cursor: pointer;
+    background: #fff;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .checkbox:hover { border-color: #8a8ad1; }
+  .checkbox.checked { background: #6c63e0; border-color: #6c63e0; color: #fff; font-size: 11px; }
+  .task-content { flex: 1; min-width: 0; }
+  .task-meta { display: flex; gap: 6px; align-items: center; flex: 0 0 auto; }
+  .chip {
+    font-size: 10.5px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: #f0f0f7;
+    color: #6b6b7c;
+    white-space: nowrap;
+  }
+  .chip.due-today { background: #fff2d6; color: #8a5b00; }
+  .chip.due-overdue { background: #fde3e1; color: #a3271f; }
+  .empty-note { padding: 14px; font-size: 13px; color: #9a9aa8; }
+
+  /* ---- Cleaning section ---- */
+  .clean-summary {
+    display: flex; align-items: center; gap: 14px;
+    background: linear-gradient(135deg,#fef6ec,#f3ecff);
+    border: 1px solid #f0e3ff;
+    border-radius: 14px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+  }
+  .clean-summary .ring-label { font-size: 13px; color: #6b5b95; font-weight: 600; }
+  .clean-summary .ring-sub { font-size: 11.5px; color: #9a8ab5; }
+  .overall-bar-wrap { flex: 1; height: 10px; background: #ecdcff88; border-radius: 999px; overflow: hidden; }
+  .overall-bar-fill { height: 100%; background: linear-gradient(90deg,#f6a5c0,#a78bfa); border-radius: 999px; transition: width .4s ease; }
+  .overall-pct { font-size: 18px; font-weight: 800; color: #7c5cbf; min-width: 46px; text-align: right; }
+
+  .chore-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    gap: 14px;
+  }
+  .chore-card {
+    background: #fff;
+    border: 1px solid #f1e6fb;
+    border-radius: 14px;
+    padding: 14px 16px 12px;
+    box-shadow: 0 1px 3px rgba(120,90,180,0.06);
+  }
+  .chore-card-head {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 8px;
+  }
+  .chore-card-title { font-size: 14.5px; font-weight: 700; display: flex; align-items: center; gap: 7px; min-width: 0; }
+  .chore-card-title .cat-title-text { overflow: hidden; text-overflow: ellipsis; }
+  .head-actions { display: flex; gap: 2px; flex: 0 0 auto; align-items: center; }
+  .reset-btn {
+    font-size: 10.5px;
+    color: #8a5cd6;
+    background: #f6effe;
+    border: none;
+    border-radius: 999px;
+    padding: 4px 9px;
+    cursor: pointer;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .reset-btn:hover { background: #efe1fc; }
+  .chore-bar-wrap { height: 7px; background: #f1eaf9; border-radius: 999px; overflow: hidden; margin-bottom: 10px; }
+  .chore-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg,#ffc9a8,#f78fb3); transition: width .35s ease; }
+  .sub-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px dashed #f2ecfa;
+    font-size: 13px;
+  }
+  .sub-row:last-child { border-bottom: none; }
+  .sub-checkbox {
+    width: 16px; height: 16px; border-radius: 5px;
+    border: 1.5px solid #ddc8f5;
+    cursor: pointer;
+    flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: #fff;
+  }
+  .sub-checkbox.checked { background: #b98be0; border-color: #b98be0; }
+  .sub-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sub-name.checked { text-decoration: line-through; color: #b3a8c2; }
+  .last-cleaned { font-size: 10.5px; color: #a394b8; white-space: nowrap; flex: 0 0 auto; }
+  .last-cleaned.fresh { color: #4caf7d; }
+  .last-cleaned.stale { color: #d9822b; }
+  .no-subs { font-size: 12px; color: #b3a8c2; padding: 6px 0; }
+  .loading, .error { font-size: 13px; color: #9a9aa8; padding: 10px 2px; }
+  .error { color: #b3261e; }
+  .reload-hint { font-size: 11px; color: #b3a8c2; margin-top: 18px; text-align: center; }
+
+  /* ---- icon buttons & badges ---- */
+  .icon-btn {
+    background: none; border: none; cursor: pointer; font-size: 12px;
+    padding: 3px 6px; border-radius: 6px; color: #9a8ab5; flex: 0 0 auto;
+  }
+  .icon-btn:hover { background: #f3ecfa; }
+  .icon-btn.danger:hover { background: #fde3e1; color: #a3271f; }
+  .icon-btn.confirming { background: #fde3e1; color: #a3271f; font-weight: 700; }
+  .badge-row { display: flex; gap: 4px; flex: 0 0 auto; }
+  .est-badge {
+    font-size: 9.5px; background: #eef1fb; color: #5b6bb0; border-radius: 6px; padding: 1px 6px; white-space: nowrap;
+  }
+  .log-badge { font-size: 9.5px; background: #e9f7ef; color: #328a5c; border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+
+  /* ---- add row / inline add form ---- */
+  .add-row { margin-top: 6px; }
+  .ghost-btn {
+    background: none; border: 1px dashed #ddc8f5; color: #9a6fd6; font-size: 12px;
+    border-radius: 8px; padding: 6px 10px; cursor: pointer; width: 100%; text-align: left;
+  }
+  .ghost-btn:hover { background: #faf3ff; }
+  .inline-form { display: flex; gap: 6px; }
+  .inline-form input[type="text"] {
+    flex: 1; font-size: 12.5px; padding: 6px 8px; border: 1px solid #ddc8f5; border-radius: 6px; font-family: inherit;
+  }
+  .inline-form button { font-size: 11.5px; border: none; border-radius: 6px; padding: 6px 10px; cursor: pointer; white-space: nowrap; }
+  .inline-form .save-btn { background: #8a5cd6; color: #fff; }
+  .inline-form .save-btn:hover { background: #7b46cf; }
+  .inline-form .cancel-btn { background: #eee; color: #666; }
+  .add-category-wrap { margin-top: 14px; max-width: 260px; }
+
+  .cat-title-input {
+    font-size: 14.5px; font-weight: 700; border: 1px solid #ddc8f5; border-radius: 6px;
+    padding: 2px 6px; font-family: inherit; width: 100%;
+  }
+
+  /* ---- toast ---- */
+  .toast {
+    position: fixed; top: 14px; right: 14px; left: 14px; background: #2b2b33; color: #fff; font-size: 12.5px;
+    padding: 8px 14px; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.15);
+    opacity: 0; transform: translateY(-6px); transition: all .25s ease; pointer-events: none; z-index: 60;
+    text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.error { background: #a3271f; }
+
+  /* ---- modal ---- */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(30,20,45,0.35);
+    display: none; align-items: center; justify-content: center; z-index: 50; padding: 20px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: #fff; border-radius: 16px; width: 100%; max-width: 420px; max-height: 85vh;
+    overflow-y: auto; padding: 20px 22px; box-shadow: 0 12px 40px rgba(0,0,0,.2);
+  }
+  .modal-box h3 { margin: 0 0 14px; font-size: 16px; }
+  .field-label {
+    font-size: 11px; font-weight: 700; color: #7a7a88; text-transform: uppercase;
+    letter-spacing: .03em; margin: 14px 0 5px;
+  }
+  .field-label:first-of-type { margin-top: 0; }
+  .modal-box input[type="text"], .modal-box input[type="number"], .modal-box input[type="date"], .modal-box textarea, .modal-box select,
+  .setup-card input[type="text"], .setup-card select {
+    width: 100%; font-size: 13px; padding: 7px 9px; border: 1px solid #e3dcf0; border-radius: 8px; font-family: inherit; background: #fff;
+  }
+  .modal-box textarea { resize: vertical; min-height: 50px; }
+  .hint { font-size: 10.5px; color: #a394b8; margin-top: 3px; }
+  .timelog-row {
+    display: flex; align-items: center; gap: 8px; font-size: 12.5px; padding: 4px 0; border-bottom: 1px solid #f4eefb;
+  }
+  .timelog-row:last-child { border-bottom: none; }
+  .timelog-add { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+  .timelog-add input[type="date"] { flex: 1; }
+  .timelog-add input[type="number"] { width: 70px; }
+  .timelog-add button {
+    flex: 0 0 auto; padding: 7px 10px; border-radius: 8px; border: none; cursor: pointer;
+    font-weight: 600; font-size: 12px; background: #f0eef5; color: #54506a;
+  }
+  .timelog-add button:hover { background: #e6e2ee; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 20px; }
+  .modal-actions button { flex: 1; font-size: 12.5px; padding: 9px 10px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; }
+  .btn-primary { background: #8a5cd6; color: #fff; }
+  .btn-primary:hover { background: #7b46cf; }
+  .btn-danger { background: #fbe4e2; color: #a3271f; }
+  .btn-danger:hover { background: #f6cfcb; }
+  .btn-secondary { background: #f0eef5; color: #54506a; }
+  .btn-secondary:hover { background: #e6e2ee; }
+
+  /* ---- backup & restore ---- */
+  .backup-panel { background: #fff; border: 1px solid #e8e8f0; border-radius: 12px; padding: 14px 16px; }
+  .backup-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .action-btn { font-size: 12.5px; padding: 8px 14px; border-radius: 8px; border: none; cursor: pointer; font-weight: 600; }
+  .action-btn.primary { background: #8a5cd6; color: #fff; }
+  .action-btn.primary:hover { background: #7b46cf; }
+  .action-btn.secondary { background: #f0eef5; color: #54506a; }
+  .action-btn.secondary:hover { background: #e6e2ee; }
+  .action-btn.confirming { background: #fde3e1; color: #a3271f; }
+  #importPanel textarea { min-height: 70px; font-size: 12px; margin-top: 6px; }
+  #exportFallback textarea { min-height: 90px; font-size: 12px; margin-top: 4px; }
+  .backup-panel input[type="file"] { font-size: 12px; margin-top: 4px; }
+
+  /* ---- setup wizard ---- */
+  .setup-card { background: #fff; border: 1px solid #e8e8f0; border-radius: 12px; padding: 16px 18px; margin-bottom: 14px; max-width: 440px; }
+  .settings-btn {
+    background: none; border: none; cursor: pointer; font-size: 18px; padding: 4px 6px; border-radius: 8px; color: #9a8ab5; flex: 0 0 auto;
+  }
+  .settings-btn:hover { background: #f3ecfa; }
+  .setup-link { font-size: 11.5px; color: #a394b8; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0; margin-top: 10px; }
+
+  @media (max-width: 480px) {
+    body { padding: 14px 14px 36px; }
+    .chore-grid { grid-template-columns: 1fr; }
+    h1 { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============== SETUP WIZARD ============== -->
+<div id="setupScreen" style="display:none;">
+  <h1>Cassie's Home Base</h1>
+  <div class="subtitle">One-time setup</div>
+
+  <div id="setupStep1" class="setup-card">
+    <div class="field-label" style="margin-top:0;">Todoist API token</div>
+    <input type="text" id="setupToken" placeholder="Paste your token here" autocapitalize="off" autocorrect="off" spellcheck="false">
+    <div class="hint">In the Todoist app: Settings → Account → API token. It's stored only on this device and sent only to Todoist's API — never anywhere else.</div>
+    <button class="action-btn primary" data-action="setup-connect" style="margin-top:10px;">Connect</button>
+    <div id="setupError" class="error" style="display:none; margin-top:8px;"></div>
+    <button class="setup-link" data-action="forget-setup">Forget setup on this device</button>
+  </div>
+
+  <div id="setupStep2" class="setup-card" style="display:none;">
+    <div class="field-label" style="margin-top:0;">Which project has your chores?</div>
+    <select id="setupProjectSelect"></select>
+    <button class="action-btn primary" data-action="setup-pick-project" style="margin-top:10px;">Next</button>
+  </div>
+
+  <div id="setupStep3" class="setup-card" style="display:none;">
+    <div class="field-label" style="margin-top:0;">Which section holds your chore categories?</div>
+    <select id="setupSectionSelect"></select>
+    <div class="hint">The section containing tasks like "House Cleaning", "Bedroom", "Kitchen" — the ones with subtasks under them.</div>
+    <button class="action-btn primary" data-action="setup-finish" style="margin-top:10px;">Finish setup</button>
+  </div>
+</div>
+
+<!-- ============== MAIN APP ============== -->
+<div id="appScreen" style="display:none;">
+
+<div class="top-row">
+  <div>
+    <h1>Cassie's Home Base</h1>
+    <div class="subtitle" id="subtitle">Loading your Todoist data…</div>
+  </div>
+  <button class="settings-btn" data-action="open-settings" title="Settings">⚙️</button>
+</div>
+
+<div class="section-title">📋 My Tasks <span class="pill" id="taskCount">–</span></div>
+<div id="tasksArea" class="task-groups"><div class="loading">Fetching tasks…</div></div>
+
+<div class="section-title">🧼 House Cleaning</div>
+<div class="clean-summary">
+  <div style="flex:0 0 auto;">
+    <div class="ring-label">This week's clean-up</div>
+    <div class="ring-sub" id="cleanSubLabel">–</div>
+  </div>
+  <div class="overall-bar-wrap"><div class="overall-bar-fill" id="overallBarFill" style="width:0%"></div></div>
+  <div class="overall-pct" id="overallPct">0%</div>
+</div>
+<div id="choreArea" class="chore-grid"><div class="loading">Fetching chores…</div></div>
+<div class="add-category-wrap" id="addCategoryWrap">
+  <button class="ghost-btn" data-action="show-add-category">+ Add category</button>
+</div>
+
+<div class="section-title">💾 Backup &amp; Restore</div>
+<div class="backup-panel">
+  <div class="backup-row">
+    <button class="action-btn primary" data-action="export-backup">⬇️ Export backup</button>
+    <button class="action-btn secondary" data-action="show-import">⬆️ Import backup</button>
+  </div>
+  <div class="hint">Backs up your chore check-off history and logged cleaning time (not your Todoist tasks themselves) to a file you can restore later.</div>
+
+  <div id="importPanel" style="display:none; margin-top:12px;">
+    <div class="field-label" style="margin-top:0;">Choose a backup file</div>
+    <input type="file" id="importFile" accept="application/json,.json">
+    <div class="field-label">Or paste backup JSON</div>
+    <textarea id="importText" placeholder="Paste exported JSON here..."></textarea>
+    <div style="display:flex; gap:8px; margin-top:8px;">
+      <button class="action-btn primary" data-action="restore-backup" style="flex:1;">Restore</button>
+      <button class="action-btn secondary" data-action="cancel-import" style="flex:1;">Cancel</button>
+    </div>
+  </div>
+
+  <div id="exportFallback" style="display:none; margin-top:12px;">
+    <div class="hint">If the download didn't start, copy this and save it yourself as a .json file:</div>
+    <textarea id="exportText" readonly></textarea>
+    <button class="action-btn secondary" data-action="copy-export" style="margin-top:6px;">Copy to clipboard</button>
+  </div>
+</div>
+
+<div class="reload-hint">Data pulled live from Todoist · check-offs and time logs saved on this device</div>
+
+</div><!-- /appScreen -->
+
+<div class="modal-overlay" id="taskModalOverlay">
+  <div class="modal-box">
+    <h3>Edit chore</h3>
+
+    <div class="field-label">Name</div>
+    <input type="text" id="modalName">
+
+    <div class="field-label">Category</div>
+    <select id="modalCategory"></select>
+
+    <div class="field-label">Notes</div>
+    <textarea id="modalNotes" placeholder="Any notes for this chore..."></textarea>
+
+    <div class="field-label">Time estimate</div>
+    <input type="text" id="modalDuration" placeholder="e.g. 15m, 1h30m">
+
+    <div class="field-label">Recurring cycle</div>
+    <input type="text" id="modalRecurring" placeholder="e.g. every sunday, every 14 days">
+    <div class="hint">Leave blank for a one-off chore with no repeat.</div>
+
+    <div class="field-label">Time actually spent</div>
+    <div id="timelogList"></div>
+    <div class="timelog-add">
+      <input type="date" id="timelogDate">
+      <input type="number" id="timelogMinutes" placeholder="min" min="0">
+      <button data-action="add-timelog">Log</button>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-primary" data-action="save-task">Save</button>
+      <button class="btn-danger" data-action="delete-task">Delete</button>
+      <button class="btn-secondary" data-action="close-modal">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= Todoist API v1 client ================= */
+const API_BASE = 'https://api.todoist.com/api/v1';
+const TASK_FILTER = '(today | overdue | next 7 days) & !@Cleaning and Chores';
+const LS_CONFIG_KEY = 'cassie_home_base_config_v1';
+const LS_STATE_KEY = 'cassie_home_base_chore_state_v1';
+const LS_TIMELOG_KEY = 'cassie_home_base_timelog_v1';
+
+const CHORE_ICONS = {
+  'House Chores': '🪴',
+  'House Cleaning': '🧽',
+  'Bedroom🛏️': '🛏️',
+  'Kitchen🍽️': '🍽️',
+  'Bathroom🚿': '🚿'
+};
+
+function loadJson(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch (e) { return fallback; }
+}
+function getConfig() { return loadJson(LS_CONFIG_KEY, null); }
+function saveConfig(cfg) { localStorage.setItem(LS_CONFIG_KEY, JSON.stringify(cfg)); }
+function getToken() { const c = getConfig(); return c && c.token; }
+function getProjectId() { const c = getConfig(); return c && c.projectId; }
+function getSectionId() { const c = getConfig(); return c && c.sectionId; }
+
+let choreState = loadJson(LS_STATE_KEY, {});   // { [taskId]: { checked: bool, lastDone: isoString|null } }
+let timelog = loadJson(LS_TIMELOG_KEY, {});    // { [taskId]: [{date, minutes}] }
+let taskById = {};
+let childrenByParent = {};
+let categories = [];
+let modalTaskId = null;
+
+function saveState() { localStorage.setItem(LS_STATE_KEY, JSON.stringify(choreState)); }
+function saveTimelog() { localStorage.setItem(LS_TIMELOG_KEY, JSON.stringify(timelog)); }
+
+async function todoistFetch(path, options) {
+  options = options || {};
+  const token = getToken();
+  const headers = { 'Authorization': 'Bearer ' + token };
+  if (options.body) headers['Content-Type'] = 'application/json';
+  const res = await fetch(API_BASE + path, {
+    method: options.method || 'GET',
+    headers,
+    body: options.body ? JSON.stringify(options.body) : undefined
+  });
+  if (!res.ok) {
+    let detail = '';
+    try { detail = await res.text(); } catch (e) {}
+    throw new Error('Todoist API error ' + res.status + (detail ? ': ' + detail.slice(0, 200) : ''));
+  }
+  if (res.status === 204) return null;
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
+async function fetchAllPages(path, params) {
+  let out = [];
+  let cursor = null;
+  for (let i = 0; i < 10; i++) {
+    const qp = new URLSearchParams(params || {});
+    qp.set('limit', '200');
+    if (cursor) qp.set('cursor', cursor);
+    const data = await todoistFetch(path + '?' + qp.toString());
+    out = out.concat((data && data.results) || []);
+    cursor = data && data.next_cursor;
+    if (!cursor) break;
+  }
+  return out;
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+let toastTimer = null;
+function showToast(msg, isError) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'toast show' + (isError ? ' error' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = 'toast'; }, 3200);
+}
+
+function armConfirm(btn, onConfirm, label) {
+  if (btn.dataset.armed === '1') {
+    clearTimeout(Number(btn.dataset.timer));
+    btn.dataset.armed = '0';
+    onConfirm();
+    return;
+  }
+  const original = btn.dataset.original || btn.textContent;
+  btn.dataset.original = original;
+  btn.dataset.armed = '1';
+  btn.textContent = label || 'Sure?';
+  btn.classList.add('confirming');
+  const timer = setTimeout(() => {
+    btn.dataset.armed = '0';
+    btn.textContent = original;
+    btn.classList.remove('confirming');
+  }, 4000);
+  btn.dataset.timer = String(timer);
+}
+
+function fmtRelative(iso) {
+  if (!iso) return 'Never';
+  const d = new Date(iso);
+  const days = Math.floor((Date.now() - d.getTime()) / 86400000);
+  if (days <= 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return days + ' days ago';
+  if (days < 14) return '1 week ago';
+  if (days < 30) return Math.floor(days / 7) + ' weeks ago';
+  return Math.floor(days / 30) + ' months ago';
+}
+function staleness(iso) {
+  if (!iso) return 'stale';
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (days <= 3) return 'fresh';
+  if (days <= 10) return '';
+  return 'stale';
+}
+
+function getDueDateStr(task) {
+  if (!task.due) return null;
+  return task.due.date || (task.due.datetime ? task.due.datetime.slice(0, 10) : null);
+}
+function fmtDueChip(dueDateStr) {
+  if (!dueDateStr) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const d = new Date(dueDateStr + 'T00:00:00');
+  const t = new Date(today + 'T00:00:00');
+  const diffDays = Math.round((d - t) / 86400000);
+  let cls = 'chip', label;
+  if (diffDays < 0) { cls += ' due-overdue'; label = 'Overdue'; }
+  else if (diffDays === 0) { cls += ' due-today'; label = 'Today'; }
+  else if (diffDays === 1) { label = 'Tomorrow'; }
+  else { label = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); }
+  return { cls, label, diffDays };
+}
+function priorityLabel(p) {
+  if (!p || p <= 1) return null;
+  return 'P' + (5 - p); // API: 4=highest -> P1 ... 1=default -> no label
+}
+function formatDuration(dur) {
+  if (!dur || !dur.amount) return '';
+  if (dur.unit === 'day') return dur.amount + 'd';
+  const amt = dur.amount;
+  if (amt < 60) return amt + 'm';
+  const h = Math.floor(amt / 60), m = amt % 60;
+  return h + 'h' + (m ? m + 'm' : '');
+}
+function parseDurationInput(str) {
+  str = (str || '').trim().toLowerCase();
+  if (!str) return null;
+  const dMatch = str.match(/^(\d+)\s*d$/);
+  if (dMatch) return { amount: parseInt(dMatch[1], 10), unit: 'day' };
+  const hMatch = str.match(/(\d+(?:\.\d+)?)\s*h/);
+  const mMatch = str.match(/(\d+)\s*m/);
+  if (!hMatch && !mMatch) {
+    const n = parseFloat(str);
+    return isNaN(n) ? null : { amount: Math.round(n), unit: 'minute' };
+  }
+  const totalMinutes = Math.round((hMatch ? parseFloat(hMatch[1]) * 60 : 0) + (mMatch ? parseInt(mMatch[1], 10) : 0));
+  return totalMinutes > 0 ? { amount: totalMinutes, unit: 'minute' } : null;
+}
+
+/* ---------------- My Tasks ---------------- */
+
+async function loadTasks() {
+  const el = document.getElementById('tasksArea');
+  try {
+    const tasks = await fetchAllPages('/tasks/filter', { query: TASK_FILTER });
+    renderTasks(tasks);
+  } catch (e) {
+    el.innerHTML = '<div class="error">Couldn\'t load tasks. Try reloading.</div>';
+  }
+}
+
+function renderTasks(tasks) {
+  const el = document.getElementById('tasksArea');
+  document.getElementById('taskCount').textContent = tasks.length + (tasks.length === 1 ? ' task' : ' tasks');
+  if (!tasks.length) {
+    el.innerHTML = '<div class="task-group"><div class="empty-note">Nothing due in the next week. 🎉</div></div>';
+    return;
+  }
+  const groups = { overdue: [], today: [], upcoming: [] };
+  tasks.forEach(t => {
+    const chip = fmtDueChip(getDueDateStr(t));
+    if (!chip) { groups.upcoming.push(t); return; }
+    if (chip.diffDays < 0) groups.overdue.push(t);
+    else if (chip.diffDays === 0) groups.today.push(t);
+    else groups.upcoming.push(t);
+  });
+  [groups.overdue, groups.today, groups.upcoming].forEach(g =>
+    g.sort((a, b) => (getDueDateStr(a) || '').localeCompare(getDueDateStr(b) || ''))
+  );
+
+  const sections = [
+    { key: 'overdue', label: 'Overdue', cls: 'overdue' },
+    { key: 'today', label: 'Today', cls: '' },
+    { key: 'upcoming', label: 'Upcoming', cls: '' }
+  ];
+
+  el.innerHTML = sections
+    .filter(s => groups[s.key].length)
+    .map(s => {
+      const rows = groups[s.key].map(t => {
+        const chip = fmtDueChip(getDueDateStr(t));
+        const chipHtml = chip ? `<span class="${chip.cls}">${chip.label}</span>` : '';
+        const label = priorityLabel(t.priority);
+        const priorityHtml = label ? `<span class="chip">${label}</span>` : '';
+        return `
+          <div class="task-row" data-id="${t.id}">
+            <div class="checkbox" data-action="complete" data-id="${t.id}"></div>
+            <div class="task-content">${escapeHtml(t.content)}</div>
+            <div class="task-meta">${priorityHtml}${chipHtml}</div>
+          </div>`;
+      }).join('');
+      return `
+        <div class="task-group">
+          <div class="task-group-header ${s.cls}">${s.label} · ${groups[s.key].length}</div>
+          ${rows}
+        </div>`;
+    }).join('');
+}
+
+async function onCompleteTask(box) {
+  const id = box.dataset.id;
+  const row = box.closest('.task-row');
+  box.classList.add('checked');
+  box.textContent = '✓';
+  row.classList.add('done');
+  try {
+    await todoistFetch(`/tasks/${id}/close`, { method: 'POST' });
+    showToast('Task completed');
+  } catch (err) {
+    box.classList.remove('checked');
+    box.textContent = '';
+    row.classList.remove('done');
+    showToast('Could not complete that task — try again', true);
+  }
+}
+
+/* ---------------- House Cleaning ---------------- */
+
+async function loadChores() {
+  const el = document.getElementById('choreArea');
+  try {
+    const tasks = await fetchAllPages('/tasks', { section_id: getSectionId() });
+    renderChores(tasks);
+  } catch (e) {
+    el.innerHTML = '<div class="error">Couldn\'t load chores. Try reloading.</div>';
+  }
+}
+
+function renderChores(tasks) {
+  const el = document.getElementById('choreArea');
+  taskById = {};
+  tasks.forEach(t => { taskById[t.id] = t; });
+
+  const parents = tasks.filter(t => !t.parent_id);
+  categories = parents.map(p => ({ id: p.id, content: p.content }));
+  childrenByParent = {};
+  tasks.filter(t => t.parent_id).forEach(t => {
+    (childrenByParent[t.parent_id] = childrenByParent[t.parent_id] || []).push(t);
+  });
+
+  let totalSubs = 0, totalChecked = 0;
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  const cards = parents.map(p => {
+    const subs = childrenByParent[p.id] || [];
+    const icon = CHORE_ICONS[p.content] || '🧹';
+    const headActions = `
+      <div class="head-actions">
+        <button class="icon-btn" data-action="rename-cat" data-id="${p.id}" title="Rename category">✏️</button>
+        <button class="icon-btn danger" data-action="delete-cat" data-id="${p.id}" title="Delete category">🗑</button>
+        <button class="reset-btn" data-action="reset-card" data-id="${p.id}">New cycle</button>
+      </div>`;
+
+    if (!subs.length) {
+      return `
+        <div class="chore-card">
+          <div class="chore-card-head">
+            <div class="chore-card-title"><span>${icon}</span><span class="cat-title-text" id="cat-title-${p.id}">${escapeHtml(p.content)}</span></div>
+            ${headActions}
+          </div>
+          <div class="no-subs">No chores added under this yet.</div>
+          <div class="add-row"><button class="ghost-btn" data-action="show-add-task" data-id="${p.id}">+ Add chore</button></div>
+        </div>`;
+    }
+
+    let checkedCount = 0;
+    const subRows = subs.map(s => {
+      const state = choreState[s.id] || { checked: false, lastDone: null };
+      if (state.checked) checkedCount++;
+      const stale = staleness(state.lastDone);
+      const durStr = formatDuration(s.duration);
+      const estBadge = durStr ? `<span class="est-badge" title="Time estimate">⏱ ${escapeHtml(durStr)}</span>` : '';
+      const todaysMinutes = (timelog[s.id] || []).filter(l => l.date === todayStr).reduce((sum, l) => sum + l.minutes, 0);
+      const logBadge = todaysMinutes ? `<span class="log-badge" title="Logged today">✅ ${todaysMinutes}m</span>` : '';
+      const noteBadge = s.description ? `<span class="est-badge" title="${escapeHtml(s.description)}">📝</span>` : '';
+      return `
+        <div class="sub-row" data-id="${s.id}">
+          <div class="sub-checkbox ${state.checked ? 'checked' : ''}" data-action="toggle-sub" data-id="${p.id}:${s.id}">${state.checked ? '✓' : ''}</div>
+          <div class="sub-name ${state.checked ? 'checked' : ''}">${escapeHtml(s.content)}</div>
+          <div class="badge-row">${estBadge}${logBadge}${noteBadge}</div>
+          <div class="last-cleaned ${stale}">${fmtRelative(state.lastDone)}</div>
+          <button class="icon-btn" data-action="edit-task" data-id="${s.id}" title="Edit chore">✏️</button>
+        </div>`;
+    }).join('');
+    totalSubs += subs.length;
+    totalChecked += checkedCount;
+    const pct = Math.round((checkedCount / subs.length) * 100);
+    return `
+      <div class="chore-card">
+        <div class="chore-card-head">
+          <div class="chore-card-title"><span>${icon}</span><span class="cat-title-text" id="cat-title-${p.id}">${escapeHtml(p.content)}</span></div>
+          ${headActions}
+        </div>
+        <div class="chore-bar-wrap"><div class="chore-bar-fill" style="width:${pct}%"></div></div>
+        ${subRows}
+        <div class="add-row"><button class="ghost-btn" data-action="show-add-task" data-id="${p.id}">+ Add chore</button></div>
+      </div>`;
+  }).join('');
+
+  el.innerHTML = cards || '<div class="empty-note">No categories yet. Add one below.</div>';
+
+  const overallPct = totalSubs ? Math.round((totalChecked / totalSubs) * 100) : 0;
+  document.getElementById('overallBarFill').style.width = overallPct + '%';
+  document.getElementById('overallPct').textContent = overallPct + '%';
+  document.getElementById('cleanSubLabel').textContent = totalSubs
+    ? `${totalChecked} of ${totalSubs} chores done this cycle`
+    : 'Add chores to start tracking';
+}
+
+function onToggleSub(dataId) {
+  const [, subId] = dataId.split(':');
+  const state = choreState[subId] || { checked: false, lastDone: null };
+  state.checked = !state.checked;
+  if (state.checked) state.lastDone = new Date().toISOString();
+  choreState[subId] = state;
+  saveState();
+  loadChores();
+}
+
+function onResetCard(cardId) {
+  const kids = childrenByParent[cardId] || [];
+  kids.forEach(k => { if (choreState[k.id]) choreState[k.id].checked = false; });
+  saveState();
+  loadChores();
+}
+
+/* ---- category rename / delete ---- */
+
+function startRenameCategory(id) {
+  const span = document.getElementById('cat-title-' + id);
+  if (!span || span.tagName === 'INPUT') return;
+  const current = span.textContent;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = current;
+  input.className = 'cat-title-input';
+  input.id = 'cat-title-' + id;
+  span.replaceWith(input);
+  input.focus();
+  input.select();
+
+  let settled = false;
+  const commit = async () => {
+    if (settled) return;
+    settled = true;
+    const newName = input.value.trim();
+    if (!newName || newName === current) { loadChores(); return; }
+    try {
+      await todoistFetch(`/tasks/${id}`, { method: 'POST', body: { content: newName } });
+      showToast('Category renamed');
+    } catch (e) {
+      showToast('Could not rename — try again', true);
+    }
+    loadChores();
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { settled = true; loadChores(); }
+  });
+  input.addEventListener('blur', commit);
+}
+
+async function deleteCategoryConfirmed(id) {
+  const kids = childrenByParent[id] || [];
+  try {
+    for (const k of kids) {
+      await todoistFetch(`/tasks/${k.id}`, { method: 'DELETE' });
+    }
+    await todoistFetch(`/tasks/${id}`, { method: 'DELETE' });
+    showToast('Category deleted');
+  } catch (e) {
+    showToast('Delete failed — try again', true);
+  }
+  loadChores();
+}
+
+/* ---- add category / add chore (inline forms) ---- */
+
+function showAddCategoryForm() {
+  const wrap = document.getElementById('addCategoryWrap');
+  wrap.innerHTML = `
+    <div class="inline-form">
+      <input type="text" class="inline-add-input" placeholder="Category name">
+      <button class="save-btn" data-action="submit-add-category">Add</button>
+      <button class="cancel-btn" data-action="cancel-add-category">Cancel</button>
+    </div>`;
+  wrap.querySelector('.inline-add-input').focus();
+}
+function restoreAddCategoryButton() {
+  document.getElementById('addCategoryWrap').innerHTML =
+    '<button class="ghost-btn" data-action="show-add-category">+ Add category</button>';
+}
+async function submitAddCategory() {
+  const wrap = document.getElementById('addCategoryWrap');
+  const input = wrap.querySelector('.inline-add-input');
+  const name = input ? input.value.trim() : '';
+  if (!name) { restoreAddCategoryButton(); return; }
+  try {
+    await todoistFetch('/tasks', { method: 'POST', body: { content: name, project_id: getProjectId(), section_id: getSectionId() } });
+    showToast('Category added');
+  } catch (e) {
+    showToast('Could not add category', true);
+  }
+  restoreAddCategoryButton();
+  loadChores();
+}
+
+function showAddTaskForm(btn) {
+  const wrap = btn.closest('.add-row');
+  const parentId = btn.dataset.id;
+  wrap.innerHTML = `
+    <div class="inline-form">
+      <input type="text" class="inline-add-input" placeholder="Chore name">
+      <button class="save-btn" data-action="submit-add-task" data-parent="${parentId}">Add</button>
+      <button class="cancel-btn" data-action="cancel-add-task" data-parent="${parentId}">Cancel</button>
+    </div>`;
+  wrap.querySelector('.inline-add-input').focus();
+}
+async function submitAddTask(parentId, wrap) {
+  const input = wrap.querySelector('.inline-add-input');
+  const name = input ? input.value.trim() : '';
+  if (!name) { loadChores(); return; }
+  try {
+    await todoistFetch('/tasks', { method: 'POST', body: { content: name, project_id: getProjectId(), section_id: getSectionId(), parent_id: parentId } });
+    showToast('Chore added');
+  } catch (e) {
+    showToast('Could not add chore', true);
+  }
+  loadChores();
+}
+
+/* ---- task edit modal ---- */
+
+function openTaskModal(id) {
+  const task = taskById[id];
+  if (!task) return;
+  modalTaskId = id;
+  document.getElementById('modalName').value = task.content || '';
+  populateCategorySelect(task.parent_id);
+  document.getElementById('modalNotes').value = task.description || '';
+  document.getElementById('modalDuration').value = formatDuration(task.duration);
+  document.getElementById('modalRecurring').value = (task.due && task.due.is_recurring) ? (task.due.string || '') : '';
+  document.getElementById('timelogDate').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('timelogMinutes').value = '';
+  renderTimelogList(id);
+  const delBtn = document.querySelector('#taskModalOverlay [data-action="delete-task"]');
+  delBtn.dataset.armed = '0';
+  delBtn.textContent = delBtn.dataset.original || 'Delete';
+  delBtn.classList.remove('confirming');
+  document.getElementById('taskModalOverlay').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('taskModalOverlay').classList.remove('open');
+  modalTaskId = null;
+}
+
+function populateCategorySelect(currentParentId) {
+  const sel = document.getElementById('modalCategory');
+  sel.innerHTML = categories.map(c =>
+    `<option value="${c.id}" ${c.id === currentParentId ? 'selected' : ''}>${escapeHtml(c.content)}</option>`
+  ).join('');
+}
+
+function renderTimelogList(taskId) {
+  const logs = timelog[taskId] || [];
+  const el = document.getElementById('timelogList');
+  if (!logs.length) { el.innerHTML = '<div class="hint">No logged sessions yet.</div>'; return; }
+  el.innerHTML = logs.slice().reverse().map(l => {
+    const idx = logs.indexOf(l);
+    return `
+      <div class="timelog-row">
+        <span style="flex:1;">${escapeHtml(l.date)}</span>
+        <span>${l.minutes} min</span>
+        <button class="icon-btn danger" data-action="remove-timelog" data-idx="${idx}">✕</button>
+      </div>`;
+  }).join('');
+}
+
+async function saveTaskFromModal() {
+  if (!modalTaskId) return;
+  const content = document.getElementById('modalName').value.trim();
+  const description = document.getElementById('modalNotes').value;
+  const durationStr = document.getElementById('modalDuration').value.trim();
+  const recurring = document.getElementById('modalRecurring').value.trim();
+  if (!content) { showToast('Name cannot be empty', true); return; }
+  const task = taskById[modalTaskId] || {};
+  const payload = { content, description };
+  const durParsed = parseDurationInput(durationStr);
+  if (durParsed) { payload.duration = durParsed.amount; payload.duration_unit = durParsed.unit; }
+  if (recurring) payload.due_string = recurring;
+
+  let warning = null;
+  try {
+    await todoistFetch(`/tasks/${modalTaskId}`, { method: 'POST', body: payload });
+
+    if (!recurring && task.due) {
+      try {
+        await todoistFetch(`/tasks/${modalTaskId}`, { method: 'POST', body: { due_string: '' } });
+      } catch (e) {
+        warning = "Saved, but couldn't clear the recurring date — clear it directly in Todoist.";
+      }
+    }
+
+    const newParentId = document.getElementById('modalCategory').value;
+    if (newParentId && newParentId !== task.parent_id) {
+      await todoistFetch(`/tasks/${modalTaskId}/move`, { method: 'POST', body: { parent_id: newParentId } });
+    }
+
+    showToast(warning || 'Chore updated', !!warning);
+    closeModal();
+  } catch (e) {
+    showToast('Could not save changes', true);
+  }
+  loadChores();
+}
+
+async function deleteTaskFromModal() {
+  if (!modalTaskId) return;
+  try {
+    await todoistFetch(`/tasks/${modalTaskId}`, { method: 'DELETE' });
+    showToast('Chore deleted');
+    closeModal();
+  } catch (e) {
+    showToast('Could not delete', true);
+  }
+  loadChores();
+}
+
+function addTimelogFromModal() {
+  if (!modalTaskId) return;
+  const date = document.getElementById('timelogDate').value || new Date().toISOString().slice(0, 10);
+  const minutes = parseInt(document.getElementById('timelogMinutes').value, 10);
+  if (!minutes || minutes <= 0) { showToast('Enter minutes first', true); return; }
+  timelog[modalTaskId] = timelog[modalTaskId] || [];
+  timelog[modalTaskId].push({ date, minutes });
+  saveTimelog();
+  document.getElementById('timelogMinutes').value = '';
+  renderTimelogList(modalTaskId);
+  showToast('Logged');
+}
+function removeTimelogEntry(idx) {
+  if (!modalTaskId) return;
+  const arr = timelog[modalTaskId] || [];
+  arr.splice(idx, 1);
+  timelog[modalTaskId] = arr;
+  saveTimelog();
+  renderTimelogList(modalTaskId);
+}
+
+/* ---- backup & restore ---- */
+
+function buildBackupPayload() {
+  return { app: 'cassie-home-base', version: 1, exportedAt: new Date().toISOString(), choreState, timelog };
+}
+function exportBackup() {
+  const json = JSON.stringify(buildBackupPayload(), null, 2);
+  let downloadWorked = false;
+  try {
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `cassie-home-base-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+    downloadWorked = true;
+  } catch (e) { downloadWorked = false; }
+  showToast(downloadWorked ? 'Backup downloaded' : 'Download blocked — copy the JSON below');
+  showExportFallback(json);
+}
+function showExportFallback(json) {
+  const panel = document.getElementById('exportFallback');
+  document.getElementById('exportText').value = json;
+  panel.style.display = 'block';
+}
+function copyExportText() {
+  const ta = document.getElementById('exportText');
+  ta.focus();
+  ta.select();
+  let copied = false;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(ta.value); copied = true; }
+  } catch (e) { copied = false; }
+  if (!copied) { try { copied = document.execCommand('copy'); } catch (e) { copied = false; } }
+  showToast(copied ? 'Copied to clipboard' : 'Select the text above and copy manually', !copied);
+}
+function toggleImportPanel() {
+  const panel = document.getElementById('importPanel');
+  panel.style.display = (panel.style.display === 'none' || !panel.style.display) ? 'block' : 'none';
+}
+function hideImportPanel() {
+  document.getElementById('importPanel').style.display = 'none';
+  document.getElementById('importText').value = '';
+  document.getElementById('importFile').value = '';
+}
+function doRestoreBackup() {
+  const raw = document.getElementById('importText').value.trim();
+  if (!raw) { showToast('Choose a file or paste backup JSON first', true); return; }
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch (e) { showToast("That doesn't look like valid JSON", true); return; }
+  if (!parsed || typeof parsed !== 'object') { showToast('Invalid backup file', true); return; }
+  choreState = (parsed.choreState && typeof parsed.choreState === 'object') ? parsed.choreState : {};
+  timelog = (parsed.timelog && typeof parsed.timelog === 'object') ? parsed.timelog : {};
+  saveState();
+  saveTimelog();
+  hideImportPanel();
+  loadChores();
+  showToast('Backup restored');
+}
+
+/* ---- setup wizard ---- */
+
+function showSetup() {
+  document.getElementById('appScreen').style.display = 'none';
+  document.getElementById('setupScreen').style.display = 'block';
+  document.getElementById('setupStep1').style.display = 'block';
+  document.getElementById('setupStep2').style.display = 'none';
+  document.getElementById('setupStep3').style.display = 'none';
+  document.getElementById('setupError').style.display = 'none';
+  const cfg = getConfig();
+  document.getElementById('setupToken').value = (cfg && cfg.token) || '';
+}
+function showApp() {
+  document.getElementById('setupScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  init();
+}
+function boot() {
+  const cfg = getConfig();
+  if (cfg && cfg.token && cfg.projectId && cfg.sectionId) showApp();
+  else showSetup();
+}
+
+async function setupConnect() {
+  const token = document.getElementById('setupToken').value.trim();
+  const errEl = document.getElementById('setupError');
+  errEl.style.display = 'none';
+  if (!token) return;
+  saveConfig({ token });
+  try {
+    const projects = await fetchAllPages('/projects', {});
+    if (!projects.length) throw new Error('no projects');
+    document.getElementById('setupProjectSelect').innerHTML =
+      projects.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+    document.getElementById('setupStep1').style.display = 'none';
+    document.getElementById('setupStep2').style.display = 'block';
+  } catch (e) {
+    errEl.textContent = 'Could not connect — double-check the token and try again.';
+    errEl.style.display = 'block';
+  }
+}
+async function setupPickProject() {
+  const sel = document.getElementById('setupProjectSelect');
+  const projectId = sel.value;
+  const projectName = sel.options[sel.selectedIndex].textContent;
+  const cfg = getConfig();
+  cfg.projectId = projectId;
+  cfg.projectName = projectName;
+  saveConfig(cfg);
+  try {
+    const sectionsList = await fetchAllPages('/sections', { project_id: projectId });
+    if (!sectionsList.length) { showToast('That project has no sections — pick one that does', true); return; }
+    document.getElementById('setupSectionSelect').innerHTML =
+      sectionsList.map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
+    document.getElementById('setupStep2').style.display = 'none';
+    document.getElementById('setupStep3').style.display = 'block';
+  } catch (e) {
+    showToast('Could not load sections', true);
+  }
+}
+function setupFinish() {
+  const sel = document.getElementById('setupSectionSelect');
+  const cfg = getConfig();
+  cfg.sectionId = sel.value;
+  cfg.sectionName = sel.options[sel.selectedIndex].textContent;
+  saveConfig(cfg);
+  showApp();
+}
+function forgetSetup() {
+  localStorage.removeItem(LS_CONFIG_KEY);
+  document.getElementById('setupToken').value = '';
+  showToast('Setup cleared on this device');
+}
+
+/* ---------------- event delegation ---------------- */
+
+document.body.addEventListener('click', (e) => {
+  const t = e.target.closest('[data-action]');
+  if (!t) return;
+  const action = t.dataset.action;
+  switch (action) {
+    case 'complete': onCompleteTask(t); break;
+    case 'toggle-sub': onToggleSub(t.dataset.id); break;
+    case 'reset-card': onResetCard(t.dataset.id); break;
+    case 'rename-cat': startRenameCategory(t.dataset.id); break;
+    case 'delete-cat': armConfirm(t, () => deleteCategoryConfirmed(t.dataset.id), '🗑 Sure?'); break;
+    case 'edit-task': openTaskModal(t.dataset.id); break;
+    case 'show-add-category': showAddCategoryForm(); break;
+    case 'submit-add-category': submitAddCategory(); break;
+    case 'cancel-add-category': restoreAddCategoryButton(); break;
+    case 'show-add-task': showAddTaskForm(t); break;
+    case 'submit-add-task': submitAddTask(t.dataset.parent, t.closest('.add-row')); break;
+    case 'cancel-add-task': loadChores(); break;
+    case 'close-modal': closeModal(); break;
+    case 'save-task': saveTaskFromModal(); break;
+    case 'delete-task': armConfirm(t, () => deleteTaskFromModal(), 'Sure?'); break;
+    case 'add-timelog': addTimelogFromModal(); break;
+    case 'remove-timelog': removeTimelogEntry(parseInt(t.dataset.idx, 10)); break;
+    case 'export-backup': exportBackup(); break;
+    case 'show-import': toggleImportPanel(); break;
+    case 'cancel-import': hideImportPanel(); break;
+    case 'restore-backup': armConfirm(t, () => doRestoreBackup(), 'Overwrite? Click again'); break;
+    case 'copy-export': copyExportText(); break;
+    case 'open-settings': showSetup(); break;
+    case 'setup-connect': setupConnect(); break;
+    case 'setup-pick-project': setupPickProject(); break;
+    case 'setup-finish': setupFinish(); break;
+    case 'forget-setup': armConfirm(t, () => forgetSetup(), 'Sure?'); break;
+  }
+});
+document.getElementById('taskModalOverlay').addEventListener('click', (e) => {
+  if (e.target.id === 'taskModalOverlay') closeModal();
+});
+document.getElementById('importFile').addEventListener('change', (e) => {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => { document.getElementById('importText').value = reader.result; };
+  reader.onerror = () => showToast('Could not read that file', true);
+  reader.readAsText(file);
+});
+
+async function init() {
+  document.getElementById('subtitle').textContent = 'Live from Todoist · last refreshed ' + new Date().toLocaleTimeString();
+  await Promise.all([loadTasks(), loadChores()]);
+}
+
+boot();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
