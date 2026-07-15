@@ -21,8 +21,10 @@
     padding: 20px 24px 40px;
   }
   h1 { font-size: 20px; margin: 0 0 4px; }
-  .subtitle { color: #7a7a88; font-size: 13px; margin-bottom: 20px; }
+  .subtitle { color: #7a7a88; font-size: 13px; margin-bottom: 4px; }
+  .sync-status { color: #a394b8; font-size: 11px; margin-bottom: 20px; }
   .top-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .top-actions { display: flex; gap: 4px; flex: 0 0 auto; }
   .section-title {
     font-size: 15px;
     font-weight: 700;
@@ -320,7 +322,18 @@
     <div class="field-label" style="margin-top:0;">Which section holds your chore categories?</div>
     <select id="setupSectionSelect"></select>
     <div class="hint">The section containing tasks like "House Cleaning", "Bedroom", "Kitchen" — the ones with subtasks under them.</div>
-    <button class="action-btn primary" data-action="setup-import-run" style="margin-top:10px;">Import &amp; finish</button>
+    <button class="action-btn primary" data-action="setup-import-run" style="margin-top:10px;">Import &amp; continue</button>
+  </div>
+
+  <div id="setupStepSync" class="setup-card" style="display:none;">
+    <div class="field-label" style="margin-top:0;">Sync across devices (optional)</div>
+    <div class="hint">Uses a private GitHub Gist as a small shared store, so your categories and chores stay in sync between devices. Create a <strong>classic</strong> token at github.com/settings/tokens with only the "gist" scope checked — nothing else needed.</div>
+    <input type="text" id="setupGithubToken" placeholder="Paste your GitHub token here" autocapitalize="off" autocorrect="off" spellcheck="false" style="margin-top:8px;">
+    <div style="display:flex; gap:8px; margin-top:10px;">
+      <button class="action-btn primary" data-action="setup-enable-sync" style="flex:1;" id="enableSyncBtn">Enable sync</button>
+      <button class="action-btn secondary" data-action="setup-skip-sync" style="flex:1;">Skip for now</button>
+    </div>
+    <div id="syncSetupError" class="error" style="display:none; margin-top:8px;"></div>
   </div>
 </div>
 
@@ -331,8 +344,12 @@
   <div>
     <h1>Cassie's Home Base</h1>
     <div class="subtitle" id="subtitle">Loading your Todoist data…</div>
+    <div class="sync-status" id="syncStatus">Sync not set up</div>
   </div>
-  <button class="settings-btn" data-action="open-settings" title="Settings">⚙️</button>
+  <div class="top-actions">
+    <button class="settings-btn" data-action="sync-now" title="Sync now">🔄</button>
+    <button class="settings-btn" data-action="open-settings" title="Settings">⚙️</button>
+  </div>
 </div>
 
 <div class="section-title">📋 My Tasks <span class="pill" id="taskCount">–</span></div>
@@ -358,7 +375,7 @@
     <button class="action-btn primary" data-action="export-backup">⬇️ Export backup</button>
     <button class="action-btn secondary" data-action="show-import">⬆️ Import backup</button>
   </div>
-  <div class="hint">Your categories and chores now live only on this device — this is the only copy. Export regularly and keep the file somewhere safe.</div>
+  <div class="hint">Your categories and chores live on this device (and sync to your other devices if you've enabled that). Export regularly and keep the file somewhere safe as a fallback.</div>
 
   <div id="importPanel" style="display:none; margin-top:12px;">
     <div class="field-label" style="margin-top:0;">Choose a backup file</div>
@@ -378,7 +395,7 @@
   </div>
 </div>
 
-<div class="reload-hint">Tasks pulled live from Todoist · categories, chores, check-offs and time logs saved only on this device</div>
+<div class="reload-hint">Tasks pulled live from Todoist · categories &amp; chores saved locally and synced via GitHub Gist if enabled</div>
 
 </div><!-- /appScreen -->
 
@@ -441,6 +458,10 @@ const LS_CHORES_DATA_KEY = 'cassie_home_base_chores_data_v2';
 const LS_LEGACY_STATE_KEY = 'cassie_home_base_chore_state_v1';
 const LS_LEGACY_TIMELOG_KEY = 'cassie_home_base_timelog_v1';
 
+/* ================= GitHub Gist sync client ================= */
+const GITHUB_API_BASE = 'https://api.github.com';
+const GIST_FILENAME = 'cassie-home-base-sync.json';
+
 const CHORE_ICONS = {
   'House Chores': '🪴',
   'House Cleaning': '🧽',
@@ -459,8 +480,13 @@ function getToken() { const c = getConfig(); return c && c.token; }
 function genId() { return 'c_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8); }
 function todayStr() { return new Date().toISOString().slice(0, 10); }
 
-function loadChoresData() { return loadJson(LS_CHORES_DATA_KEY, { categories: [], chores: [] }); }
-function saveChoresData(data) { localStorage.setItem(LS_CHORES_DATA_KEY, JSON.stringify(data)); }
+function loadChoresData() { return loadJson(LS_CHORES_DATA_KEY, { categories: [], chores: [], updatedAt: 0 }); }
+let syncPushTimer = null;
+function saveChoresData(data) {
+  data.updatedAt = Date.now();
+  localStorage.setItem(LS_CHORES_DATA_KEY, JSON.stringify(data));
+  scheduleSyncPush();
+}
 
 let categories = [];   // cache of data.categories, refreshed each render, used by the edit modal's select
 let modalChoreId = null;
@@ -497,6 +523,109 @@ async function fetchAllPages(path, params) {
     if (!cursor) break;
   }
   return out;
+}
+
+/* ---- GitHub Gist helpers ---- */
+async function githubFetch(path, options) {
+  options = options || {};
+  const cfg = getConfig();
+  const token = cfg && cfg.githubToken;
+  const headers = { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json' };
+  if (options.body) headers['Content-Type'] = 'application/json';
+  const res = await fetch(GITHUB_API_BASE + path, {
+    method: options.method || 'GET',
+    headers,
+    body: options.body ? JSON.stringify(options.body) : undefined
+  });
+  if (!res.ok) {
+    let detail = '';
+    try { detail = await res.text(); } catch (e) {}
+    throw new Error('GitHub API error ' + res.status + (detail ? ': ' + detail.slice(0, 200) : ''));
+  }
+  return res.json();
+}
+async function findOrCreateSyncGist(token) {
+  const cfgSnapshot = getConfig() || {};
+  saveConfig({ ...cfgSnapshot, githubToken: token }); // needed so githubFetch can authenticate below
+  const gists = await githubFetch('/gists?per_page=100');
+  const existing = gists.find(g => g.files && g.files[GIST_FILENAME]);
+  if (existing) return existing.id;
+  const created = await githubFetch('/gists', {
+    method: 'POST',
+    body: {
+      description: "Cassie's Home Base sync data — do not delete",
+      public: false,
+      files: { [GIST_FILENAME]: { content: JSON.stringify({ categories: [], chores: [], updatedAt: 0 }) } }
+    }
+  });
+  return created.id;
+}
+async function pullFromGist() {
+  const cfg = getConfig();
+  const gist = await githubFetch('/gists/' + cfg.gistId);
+  return JSON.parse(gist.files[GIST_FILENAME].content);
+}
+async function pushToGist(data) {
+  const cfg = getConfig();
+  await githubFetch('/gists/' + cfg.gistId, {
+    method: 'PATCH',
+    body: { files: { [GIST_FILENAME]: { content: JSON.stringify(data) } } }
+  });
+}
+function scheduleSyncPush() {
+  const cfg = getConfig();
+  if (!cfg || !cfg.githubToken || !cfg.gistId) return;
+  clearTimeout(syncPushTimer);
+  syncPushTimer = setTimeout(async () => {
+    try {
+      await pushToGist(loadChoresData());
+      recordSyncTime();
+    } catch (e) {
+      showToast('Could not sync to the cloud', true);
+    }
+  }, 1500);
+}
+async function syncNow(verbose) {
+  const cfg = getConfig();
+  if (!cfg || !cfg.githubToken || !cfg.gistId) {
+    if (verbose) showToast("Sync isn't set up — see Settings", true);
+    return;
+  }
+  try {
+    const remote = await pullFromGist();
+    const local = loadChoresData();
+    const remoteUpdated = remote.updatedAt || 0;
+    const localUpdated = local.updatedAt || 0;
+    if (remoteUpdated > localUpdated) {
+      localStorage.setItem(LS_CHORES_DATA_KEY, JSON.stringify(remote));
+      renderChores();
+      recordSyncTime();
+      if (verbose) showToast('Synced — pulled changes from your other device');
+    } else if (localUpdated > remoteUpdated) {
+      await pushToGist(local);
+      recordSyncTime();
+      if (verbose) showToast('Synced — pushed your changes');
+    } else {
+      recordSyncTime();
+      if (verbose) showToast('Already up to date');
+    }
+  } catch (e) {
+    if (verbose) showToast('Sync failed — check your connection', true);
+  }
+}
+function recordSyncTime() {
+  const cfg = getConfig();
+  if (!cfg) return;
+  cfg.lastSyncedAt = Date.now();
+  saveConfig(cfg);
+  updateSyncStatusUI();
+}
+function updateSyncStatusUI() {
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  const cfg = getConfig();
+  if (!cfg || !cfg.githubToken || !cfg.gistId) { el.textContent = 'Sync not set up'; return; }
+  el.textContent = cfg.lastSyncedAt ? ('🔄 Synced ' + fmtRelative(new Date(cfg.lastSyncedAt).toISOString())) : 'Sync enabled — not synced yet';
 }
 
 function escapeHtml(s) {
@@ -536,7 +665,12 @@ function fmtRelative(iso) {
   if (!iso) return 'Never';
   const d = new Date(iso);
   const days = Math.floor((Date.now() - d.getTime()) / 86400000);
-  if (days <= 0) return 'Today';
+  if (days <= 0) {
+    const mins = Math.floor((Date.now() - d.getTime()) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + 'm ago';
+    return Math.floor(mins / 60) + 'h ago';
+  }
   if (days === 1) return 'Yesterday';
   if (days < 7) return days + ' days ago';
   if (days < 14) return '1 week ago';
@@ -1071,6 +1205,7 @@ function showSetup() {
   document.getElementById('setupStepImportChoice').style.display = 'none';
   document.getElementById('setupStepProject').style.display = 'none';
   document.getElementById('setupStepSection').style.display = 'none';
+  document.getElementById('setupStepSync').style.display = 'none';
   document.getElementById('setupError').style.display = 'none';
   const cfg = getConfig();
   document.getElementById('setupToken').value = (cfg && cfg.token) || '';
@@ -1080,6 +1215,7 @@ function showSetup() {
 function showApp() {
   document.getElementById('setupScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
+  updateSyncStatusUI();
   init();
 }
 function boot() {
@@ -1097,7 +1233,6 @@ async function setupConnect() {
   const prevCfg = getConfig() || {};
   saveConfig({ ...prevCfg, token });
   try {
-    // quick validation call
     await fetchAllPages('/projects', {});
     document.getElementById('setupStepToken').style.display = 'none';
     document.getElementById('setupStepImportChoice').style.display = 'block';
@@ -1106,7 +1241,10 @@ async function setupConnect() {
     errEl.style.display = 'block';
   }
 }
-function setupImportNo() { setupFinish(); }
+function setupImportNo() {
+  document.getElementById('setupStepImportChoice').style.display = 'none';
+  goToSyncStep();
+}
 async function setupImportYes() {
   try {
     const projects = await fetchAllPages('/projects', {});
@@ -1153,7 +1291,7 @@ async function setupImportRun() {
   } catch (e) {
     showToast('Import failed — you can try again later from Settings', true);
   }
-  setupFinish();
+  goToSyncStep();
 }
 function importTodoistChoreTasks(tasks) {
   const legacyState = loadJson(LS_LEGACY_STATE_KEY, {});
@@ -1196,6 +1334,37 @@ function importTodoistChoreTasks(tasks) {
   });
   saveChoresData(data);
 }
+function goToSyncStep() {
+  document.getElementById('setupStepProject').style.display = 'none';
+  document.getElementById('setupStepSection').style.display = 'none';
+  document.getElementById('setupStepImportChoice').style.display = 'none';
+  const cfg = getConfig();
+  document.getElementById('setupGithubToken').value = (cfg && cfg.githubToken) || '';
+  document.getElementById('enableSyncBtn').textContent = (cfg && cfg.githubToken) ? 'Reconnect' : 'Enable sync';
+  document.getElementById('syncSetupError').style.display = 'none';
+  document.getElementById('setupStepSync').style.display = 'block';
+}
+async function setupEnableSync() {
+  const token = document.getElementById('setupGithubToken').value.trim();
+  const errEl = document.getElementById('syncSetupError');
+  errEl.style.display = 'none';
+  if (!token) { setupFinish(); return; }
+  try {
+    const gistId = await findOrCreateSyncGist(token);
+    const cfg = getConfig();
+    cfg.githubToken = token;
+    cfg.gistId = gistId;
+    saveConfig(cfg);
+    await syncNow(false);
+    showToast('Sync enabled');
+  } catch (e) {
+    errEl.textContent = 'Could not enable sync — check the token has the "gist" scope.';
+    errEl.style.display = 'block';
+    return;
+  }
+  setupFinish();
+}
+function setupSkipSync() { setupFinish(); }
 function setupFinish() {
   showApp();
 }
@@ -1235,11 +1404,14 @@ document.body.addEventListener('click', (e) => {
     case 'restore-backup': armConfirm(t, () => doRestoreBackup(), 'Overwrite? Click again'); break;
     case 'copy-export': copyExportText(); break;
     case 'open-settings': showSetup(); break;
+    case 'sync-now': syncNow(true); break;
     case 'setup-connect': setupConnect(); break;
     case 'setup-import-yes': setupImportYes(); break;
     case 'setup-import-no': setupImportNo(); break;
     case 'setup-pick-project': setupPickProject(); break;
     case 'setup-import-run': setupImportRun(); break;
+    case 'setup-enable-sync': setupEnableSync(); break;
+    case 'setup-skip-sync': setupSkipSync(); break;
     case 'cancel-setup': cancelSetup(); break;
     case 'forget-setup': armConfirm(t, () => forgetSetup(), 'Sure?'); break;
   }
@@ -1257,8 +1429,11 @@ document.getElementById('importFile').addEventListener('change', (e) => {
 });
 
 async function init() {
-  document.getElementById('subtitle').textContent = 'Live from Todoist · last refreshed ' + new Date().toLocaleTimeString();
+  document.getElementById('subtitle').textContent = 'Loading…';
+  await syncNow(false);
   loadChores();
+  updateSyncStatusUI();
+  document.getElementById('subtitle').textContent = 'Live from Todoist · last refreshed ' + new Date().toLocaleTimeString();
   await loadTasks();
 }
 
