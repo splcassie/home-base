@@ -109,7 +109,7 @@
 
   .chore-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 14px;
   }
   .chore-card {
@@ -279,6 +279,9 @@
   .settings-btn:hover { background: #f3ecfa; }
   .setup-link { font-size: 11.5px; color: #a394b8; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0; margin-top: 10px; margin-right: 14px; }
 
+  @media (max-width: 900px) {
+    .chore-grid { grid-template-columns: repeat(2, 1fr); }
+  }
   @media (max-width: 480px) {
     body { padding: 14px 14px 36px; }
     .chore-grid { grid-template-columns: 1fr; }
@@ -297,8 +300,11 @@
     <div class="field-label" style="margin-top:0;">Todoist API token</div>
     <input type="text" id="setupToken" placeholder="Paste your token here" autocapitalize="off" autocorrect="off" spellcheck="false">
     <div class="hint">In the Todoist app: Settings → Account → API token. Used only for your regular "My Tasks" list — stored solely on this device.</div>
-    <button class="action-btn primary" data-action="setup-connect" style="margin-top:10px;">Connect</button>
+    <button class="action-btn primary" data-action="setup-connect" id="setupConnectBtn" style="margin-top:10px;">Continue</button>
     <div id="setupError" class="error" style="display:none; margin-top:8px;"></div>
+    <div id="jumpToSyncWrap" style="display:none; margin-top:6px;">
+      <button class="setup-link" data-action="jump-to-sync" id="jumpToSyncLink" style="margin-top:0;">⚙️ Go straight to sync settings →</button>
+    </div>
     <button class="setup-link" data-action="cancel-setup" id="cancelSetupLink" style="display:none;">Cancel</button>
     <button class="setup-link" data-action="forget-setup">Forget setup on this device</button>
   </div>
@@ -1211,6 +1217,12 @@ function showSetup() {
   document.getElementById('setupToken').value = (cfg && cfg.token) || '';
   document.getElementById('cancelSetupLink').style.display = (cfg && cfg.token) ? 'inline' : 'none';
   document.getElementById('setupSubtitle').textContent = (cfg && cfg.token) ? 'Settings' : 'One-time setup';
+  document.getElementById('jumpToSyncWrap').style.display = (cfg && cfg.token) ? 'block' : 'none';
+}
+function jumpToSync() {
+  document.getElementById('setupStepToken').style.display = 'none';
+  document.getElementById('setupStepImportChoice').style.display = 'none';
+  goToSyncStep();
 }
 function showApp() {
   document.getElementById('setupScreen').style.display = 'none';
@@ -1406,6 +1418,7 @@ document.body.addEventListener('click', (e) => {
     case 'open-settings': showSetup(); break;
     case 'sync-now': syncNow(true); break;
     case 'setup-connect': setupConnect(); break;
+    case 'jump-to-sync': jumpToSync(); break;
     case 'setup-import-yes': setupImportYes(); break;
     case 'setup-import-no': setupImportNo(); break;
     case 'setup-pick-project': setupPickProject(); break;

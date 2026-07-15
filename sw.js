@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cassie-home-base-v3';
+const CACHE_NAME = 'cassie-home-base-v6';
 const SHELL_FILES = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -17,7 +17,7 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Only cache-serve the app shell itself. Everything else (Todoist/GitHub API calls, etc.)
+// Only cache-serve the app shell itself. Everything else (Todoist API calls, etc.)
 // goes straight to the network and is never intercepted or cached.
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
