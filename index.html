@@ -94,18 +94,19 @@
 
   /* ---- Cleaning section ---- */
   .clean-summary {
-    display: flex; align-items: center; gap: 14px;
+    display: flex; flex-direction: column; gap: 10px;
     background: linear-gradient(135deg,#fef6ec,#f3ecff);
     border: 1px solid #f0e3ff;
     border-radius: 14px;
     padding: 14px 18px;
     margin-bottom: 16px;
   }
-  .clean-summary .ring-label { font-size: 13px; color: #6b5b95; font-weight: 600; }
-  .clean-summary .ring-sub { font-size: 11.5px; color: #9a8ab5; }
+  .clean-summary-row { display: flex; align-items: center; gap: 12px; }
+  .clean-summary-row .row-label { font-size: 12.5px; font-weight: 700; color: #6b5b95; flex: 0 0 62px; }
+  .clean-summary-sub { font-size: 11.5px; color: #9a8ab5; margin-top: 2px; }
   .overall-bar-wrap { flex: 1; height: 10px; background: #ecdcff88; border-radius: 999px; overflow: hidden; }
   .overall-bar-fill { height: 100%; background: linear-gradient(90deg,#f6a5c0,#a78bfa); border-radius: 999px; transition: width .4s ease; }
-  .overall-pct { font-size: 18px; font-weight: 800; color: #7c5cbf; min-width: 46px; text-align: right; }
+  .overall-pct { font-size: 15px; font-weight: 800; color: #7c5cbf; min-width: 40px; text-align: right; }
 
   .chore-grid {
     display: grid;
@@ -179,6 +180,9 @@
   }
   .log-badge { font-size: 9.5px; background: #e9f7ef; color: #328a5c; border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
   .recur-badge { font-size: 9.5px; background: #fdeee0; color: #b06a1a; border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+  .due-badge { font-size: 9.5px; background: #f0f0f7; color: #6b6b7c; border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
+  .due-badge.due-today { background: #fff2d6; color: #8a5b00; }
+  .due-badge.due-overdue { background: #fde3e1; color: #a3271f; }
 
   /* ---- add row / inline add form ---- */
   .add-row { margin-top: 6px; }
@@ -363,12 +367,17 @@
 
 <div class="section-title">🧼 House Cleaning</div>
 <div class="clean-summary">
-  <div style="flex:0 0 auto;">
-    <div class="ring-label">This week's clean-up</div>
-    <div class="ring-sub" id="cleanSubLabel">–</div>
+  <div class="clean-summary-row">
+    <div class="row-label">This week</div>
+    <div class="overall-bar-wrap"><div class="overall-bar-fill" id="weekBarFill" style="width:0%"></div></div>
+    <div class="overall-pct" id="weekPct">0%</div>
   </div>
-  <div class="overall-bar-wrap"><div class="overall-bar-fill" id="overallBarFill" style="width:0%"></div></div>
-  <div class="overall-pct" id="overallPct">0%</div>
+  <div class="clean-summary-row">
+    <div class="row-label">Today</div>
+    <div class="overall-bar-wrap"><div class="overall-bar-fill" id="todayBarFill" style="width:0%"></div></div>
+    <div class="overall-pct" id="todayPct">0%</div>
+  </div>
+  <div class="clean-summary-sub" id="cleanSubLabel">–</div>
 </div>
 <div id="choreArea" class="chore-grid"></div>
 <div class="add-category-wrap" id="addCategoryWrap">
@@ -432,9 +441,13 @@
     </div>
     <div class="hint">Leave the number at 0 (or blank) for a one-off chore with no repeat.</div>
 
+    <div class="field-label">Due date</div>
+    <input type="date" id="modalDueDate">
+    <div class="hint" id="modalDueDateHint">Leave blank if this chore doesn't need a due date.</div>
+
     <div class="field-label">Starting from</div>
     <input type="date" id="modalStartDate">
-    <div class="hint">Used to work out when the next cycle begins.</div>
+    <div class="hint">Used as the anchor for the first cycle when recurrence is turned on.</div>
 
     <div class="field-label">Time actually spent</div>
     <div id="timelogList"></div>
@@ -694,13 +707,14 @@ function getDueDateStr(task) {
   if (!task.due) return null;
   return task.due.date || (task.due.datetime ? task.due.datetime.slice(0, 10) : null);
 }
-function fmtDueChip(dueDateStr) {
+function fmtDueChip(dueDateStr, baseCls) {
   if (!dueDateStr) return null;
+  baseCls = baseCls || 'chip';
   const today = todayStr();
   const d = new Date(dueDateStr + 'T00:00:00');
   const t = new Date(today + 'T00:00:00');
   const diffDays = Math.round((d - t) / 86400000);
-  let cls = 'chip', label;
+  let cls = baseCls, label;
   if (diffDays < 0) { cls += ' due-overdue'; label = 'Overdue'; }
   else if (diffDays === 0) { cls += ' due-today'; label = 'Today'; }
   else if (diffDays === 1) { label = 'Tomorrow'; }
@@ -720,15 +734,21 @@ function formatDurationFromTodoist(dur) {
   return h + 'h' + (m ? m + 'm' : '');
 }
 
-/* ---- local recurrence helpers ---- */
-function computeNextDue(chore) {
-  if (!chore.recurEvery || !chore.recurUnit) return null;
-  const base = new Date((chore.lastDone || chore.startDate || todayStr()).slice(0, 10) + 'T00:00:00');
-  const next = new Date(base);
-  if (chore.recurUnit === 'days') next.setDate(next.getDate() + chore.recurEvery);
-  else if (chore.recurUnit === 'weeks') next.setDate(next.getDate() + chore.recurEvery * 7);
-  else if (chore.recurUnit === 'months') next.setMonth(next.getMonth() + chore.recurEvery);
-  return next;
+/* ---- local recurrence & due-date helpers ---- */
+function formatLocalDate(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+function advanceDueDate(dueDateStr, every, unit) {
+  const d = new Date((dueDateStr || todayStr()).slice(0, 10) + 'T00:00:00');
+  if (unit === 'days') d.setDate(d.getDate() + every);
+  else if (unit === 'weeks') d.setDate(d.getDate() + every * 7);
+  else if (unit === 'months') d.setMonth(d.getMonth() + every);
+  // use local date components rather than toISOString() (which round-trips through UTC
+  // and would shift the date by a day in timezones ahead of UTC)
+  return formatLocalDate(d);
 }
 function recurLabel(chore) {
   if (!chore.recurEvery || !chore.recurUnit) return '';
@@ -736,14 +756,39 @@ function recurLabel(chore) {
   const unit = chore.recurUnit.replace(/s$/, '');
   return `every ${n} ${unit}${n === 1 ? '' : 's'}`;
 }
-function applyAutoReset() {
-  const data = loadChoresData();
-  const today = new Date(todayStr() + 'T00:00:00');
+// backfills chore.dueDate for chores saved before the due-date field existed
+function migrateDueDates(data) {
   let changed = false;
   data.chores.forEach(c => {
-    if (c.checked && c.recurEvery && c.recurUnit) {
-      const next = computeNextDue(c);
-      if (next && today >= next) { c.checked = false; changed = true; }
+    if (c.dueDate === undefined) {
+      if (c.recurEvery && c.recurUnit) {
+        const base = (c.lastDone || c.startDate || todayStr()).slice(0, 10);
+        c.dueDate = advanceDueDate(base, c.recurEvery, c.recurUnit);
+      } else {
+        c.dueDate = null;
+      }
+      changed = true;
+    }
+  });
+  return changed;
+}
+function applyAutoReset() {
+  const data = loadChoresData();
+  let changed = migrateDueDates(data);
+  const today = new Date(todayStr() + 'T00:00:00');
+  data.chores.forEach(c => {
+    if (c.checked && c.recurEvery && c.recurUnit && c.dueDate) {
+      let due = new Date(c.dueDate + 'T00:00:00');
+      if (today >= due) {
+        c.checked = false;
+        let safety = 0;
+        do {
+          c.dueDate = advanceDueDate(c.dueDate, c.recurEvery, c.recurUnit);
+          due = new Date(c.dueDate + 'T00:00:00');
+          safety++;
+        } while (today >= due && safety < 500);
+        changed = true;
+      }
     }
   });
   if (changed) saveChoresData(data);
@@ -846,13 +891,44 @@ function loadChores() {
   renderChores();
 }
 
+function computeProgressSummary(chores) {
+  const todayD = new Date(todayStr() + 'T00:00:00');
+  let todayTotal = 0, todayDone = 0, weekTotal = 0, weekDone = 0;
+  chores.forEach(c => {
+    if (!c.dueDate) return; // unscheduled chores don't count toward either bar
+    const due = new Date(c.dueDate + 'T00:00:00');
+    const diff = Math.round((due - todayD) / 86400000);
+    if (diff <= 6) {
+      weekTotal++;
+      if (c.checked) weekDone++;
+    }
+    if (diff <= 0) {
+      todayTotal++;
+      if (c.checked) todayDone++;
+    }
+  });
+  return { todayTotal, todayDone, weekTotal, weekDone };
+}
+function renderProgressSummary(chores) {
+  const s = computeProgressSummary(chores);
+  const weekPct = s.weekTotal ? Math.round((s.weekDone / s.weekTotal) * 100) : 0;
+  const todayPct = s.todayTotal ? Math.round((s.todayDone / s.todayTotal) * 100) : 0;
+  document.getElementById('weekBarFill').style.width = weekPct + '%';
+  document.getElementById('weekPct').textContent = weekPct + '%';
+  document.getElementById('todayBarFill').style.width = todayPct + '%';
+  document.getElementById('todayPct').textContent = todayPct + '%';
+  document.getElementById('cleanSubLabel').textContent = (s.todayTotal || s.weekTotal)
+    ? `${s.todayDone} of ${s.todayTotal} due today · ${s.weekDone} of ${s.weekTotal} due this week`
+    : 'No due dates set yet — edit a chore to add one';
+}
+
 function renderChores() {
   const el = document.getElementById('choreArea');
   const data = loadChoresData();
   categories = data.categories;
   const todayStrVal = todayStr();
 
-  let totalSubs = 0, totalChecked = 0;
+  renderProgressSummary(data.chores);
 
   const cards = categories.map(cat => {
     const subs = data.chores.filter(c => c.categoryId === cat.id);
@@ -886,17 +962,17 @@ function renderChores() {
       const todaysMinutes = (s.timelog || []).filter(l => l.date === todayStrVal).reduce((sum, l) => sum + l.minutes, 0);
       const logBadge = todaysMinutes ? `<span class="log-badge" title="Logged today">✅ ${todaysMinutes}m</span>` : '';
       const noteBadge = s.notes ? `<span class="est-badge" title="${escapeHtml(s.notes)}">📝</span>` : '';
+      const dueChip = fmtDueChip(s.dueDate, 'due-badge');
+      const dueBadge = dueChip ? `<span class="${dueChip.cls}" title="Due date">📅 ${dueChip.label}</span>` : '';
       return `
         <div class="sub-row" data-id="${s.id}">
           <div class="sub-checkbox ${s.checked ? 'checked' : ''}" data-action="toggle-sub" data-id="${s.id}">${s.checked ? '✓' : ''}</div>
           <div class="sub-name ${s.checked ? 'checked' : ''}">${escapeHtml(s.name)}</div>
-          <div class="badge-row">${estBadge}${recurBadge}${logBadge}${noteBadge}</div>
+          <div class="badge-row">${dueBadge}${estBadge}${recurBadge}${logBadge}${noteBadge}</div>
           <div class="last-cleaned ${stale}">${fmtRelative(s.lastDone)}</div>
           <button class="icon-btn" data-action="edit-task" data-id="${s.id}" title="Edit chore">✏️</button>
         </div>`;
     }).join('');
-    totalSubs += subs.length;
-    totalChecked += checkedCount;
     const pct = Math.round((checkedCount / subs.length) * 100);
     return `
       <div class="chore-card">
@@ -911,13 +987,6 @@ function renderChores() {
   }).join('');
 
   el.innerHTML = cards || '<div class="empty-note">No categories yet. Add one below, or import from Todoist via Settings.</div>';
-
-  const overallPct = totalSubs ? Math.round((totalChecked / totalSubs) * 100) : 0;
-  document.getElementById('overallBarFill').style.width = overallPct + '%';
-  document.getElementById('overallPct').textContent = overallPct + '%';
-  document.getElementById('cleanSubLabel').textContent = totalSubs
-    ? `${totalChecked} of ${totalSubs} chores done this cycle`
-    : 'Add chores to start tracking';
 }
 
 function onToggleSub(choreId) {
@@ -925,13 +994,31 @@ function onToggleSub(choreId) {
   const chore = data.chores.find(c => c.id === choreId);
   if (!chore) return;
   chore.checked = !chore.checked;
-  if (chore.checked) chore.lastDone = new Date().toISOString();
+  if (chore.checked) {
+    chore.lastDone = new Date().toISOString();
+    if (chore.recurEvery && chore.recurUnit && chore.dueDate) {
+      const due = new Date(chore.dueDate + 'T00:00:00');
+      const today = new Date(todayStr() + 'T00:00:00');
+      if (today >= due) {
+        // completing on/after the due date starts the next cycle right away
+        chore.dueDate = advanceDueDate(chore.dueDate, chore.recurEvery, chore.recurUnit);
+      }
+      // completing early keeps the same due date; it stays checked until that date arrives
+    }
+  }
   saveChoresData(data);
   renderChores();
 }
 function onResetCard(categoryId) {
   const data = loadChoresData();
-  data.chores.forEach(c => { if (c.categoryId === categoryId) c.checked = false; });
+  data.chores.forEach(c => {
+    if (c.categoryId === categoryId) {
+      c.checked = false;
+      if (c.recurEvery && c.recurUnit && c.dueDate) {
+        c.dueDate = advanceDueDate(c.dueDate, c.recurEvery, c.recurUnit);
+      }
+    }
+  });
   saveChoresData(data);
   renderChores();
 }
@@ -1025,7 +1112,7 @@ function submitAddTask(categoryId, wrap) {
     const data = loadChoresData();
     data.chores.push({
       id: genId(), categoryId, name, notes: '', duration: '',
-      recurEvery: null, recurUnit: null, startDate: todayStr(),
+      recurEvery: null, recurUnit: null, startDate: todayStr(), dueDate: null,
       checked: false, lastDone: null, timelog: []
     });
     saveChoresData(data);
@@ -1047,10 +1134,12 @@ function openTaskModal(id) {
   document.getElementById('modalDuration').value = chore.duration || '';
   document.getElementById('modalRecurEvery').value = chore.recurEvery || '';
   document.getElementById('modalRecurUnit').value = chore.recurUnit || 'weeks';
+  document.getElementById('modalDueDate').value = chore.dueDate || '';
   document.getElementById('modalStartDate').value = chore.startDate || todayStr();
   document.getElementById('timelogDate').value = todayStr();
   document.getElementById('timelogMinutes').value = '';
   renderTimelogList(id);
+  updateDueDateFieldState();
   const delBtn = document.querySelector('#taskModalOverlay [data-action="delete-task"]');
   delBtn.dataset.armed = '0';
   delBtn.textContent = delBtn.dataset.original || 'Delete';
@@ -1066,6 +1155,16 @@ function populateCategorySelect(currentCategoryId) {
   sel.innerHTML = categories.map(c =>
     `<option value="${c.id}" ${c.id === currentCategoryId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`
   ).join('');
+}
+function updateDueDateFieldState() {
+  const everyVal = parseInt(document.getElementById('modalRecurEvery').value, 10);
+  const isRecurring = everyVal > 0;
+  const dueInput = document.getElementById('modalDueDate');
+  const hint = document.getElementById('modalDueDateHint');
+  dueInput.disabled = isRecurring;
+  hint.textContent = isRecurring
+    ? 'Auto-calculated from the recurrence — advances automatically each time a cycle completes.'
+    : "Leave blank if this chore doesn't need a due date.";
 }
 function renderTimelogList(choreId) {
   const data = loadChoresData();
@@ -1096,9 +1195,17 @@ function saveTaskFromModal() {
   chore.duration = document.getElementById('modalDuration').value.trim();
   const recurEveryVal = parseInt(document.getElementById('modalRecurEvery').value, 10);
   const recurUnitVal = document.getElementById('modalRecurUnit').value;
-  if (recurEveryVal > 0 && recurUnitVal) { chore.recurEvery = recurEveryVal; chore.recurUnit = recurUnitVal; }
-  else { chore.recurEvery = null; chore.recurUnit = null; }
   chore.startDate = document.getElementById('modalStartDate').value || chore.startDate || todayStr();
+  if (recurEveryVal > 0 && recurUnitVal) {
+    chore.recurEvery = recurEveryVal;
+    chore.recurUnit = recurUnitVal;
+    // due date for a recurring chore is auto-managed; seed it once if it doesn't have one yet
+    if (!chore.dueDate) chore.dueDate = chore.startDate;
+  } else {
+    chore.recurEvery = null;
+    chore.recurUnit = null;
+    chore.dueDate = document.getElementById('modalDueDate').value || null;
+  }
   saveChoresData(data);
   showToast('Chore updated');
   closeModal();
@@ -1329,6 +1436,7 @@ function importTodoistChoreTasks(tasks) {
       if (alreadyImported) return;
       const recur = guessRecurFromTodoist(k.due);
       const legacy = legacyState[k.id] || {};
+      const importedDueDate = recur.recurEvery ? todayStr() : (getDueDateStr(k) || null);
       data.chores.push({
         id: genId(),
         categoryId: catId,
@@ -1338,6 +1446,7 @@ function importTodoistChoreTasks(tasks) {
         recurEvery: recur.recurEvery,
         recurUnit: recur.recurUnit,
         startDate: todayStr(),
+        dueDate: importedDueDate,
         checked: !!legacy.checked,
         lastDone: legacy.lastDone || null,
         timelog: legacyTimelog[k.id] || []
@@ -1440,6 +1549,8 @@ document.getElementById('importFile').addEventListener('change', (e) => {
   reader.onerror = () => showToast('Could not read that file', true);
   reader.readAsText(file);
 });
+document.getElementById('modalRecurEvery').addEventListener('input', updateDueDateFieldState);
+document.getElementById('modalRecurUnit').addEventListener('change', updateDueDateFieldState);
 
 async function init() {
   document.getElementById('subtitle').textContent = 'Loading…';
