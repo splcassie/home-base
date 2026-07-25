@@ -183,6 +183,7 @@
   .due-badge { font-size: 9.5px; background: #f0f0f7; color: #6b6b7c; border-radius: 6px; padding: 1px 6px; white-space: nowrap; }
   .due-badge.due-today { background: #fff2d6; color: #8a5b00; }
   .due-badge.due-overdue { background: #fde3e1; color: #a3271f; }
+  .cat-badge { font-size: 9.5px; background: #efe7fb; color: #6b4fa0; border-radius: 6px; padding: 1px 6px; white-space: nowrap; font-weight: 600; }
 
   /* ---- add row / inline add form ---- */
   .add-row { margin-top: 6px; }
@@ -283,6 +284,16 @@
   .settings-btn:hover { background: #f3ecfa; }
   .setup-link { font-size: 11.5px; color: #a394b8; background: none; border: none; cursor: pointer; text-decoration: underline; padding: 0; margin-top: 10px; margin-right: 14px; }
 
+  /* ---- collapsible upcoming section ---- */
+  .upcoming-details { margin: 28px 0 12px; }
+  .upcoming-summary { cursor: pointer; list-style: none; user-select: none; }
+  .upcoming-summary::-webkit-details-marker { display: none; }
+  .upcoming-summary::marker { content: ''; }
+  .upcoming-summary .section-title { margin: 0; display: inline-flex; }
+  .disclosure-arrow { display: inline-block; transition: transform .15s ease; font-size: 10px; color: #9a8ab5; }
+  .upcoming-details[open] .disclosure-arrow { transform: rotate(90deg); }
+  .upcoming-body { margin-top: 12px; }
+
   @media (max-width: 900px) {
     .chore-grid { grid-template-columns: repeat(2, 1fr); }
   }
@@ -379,6 +390,17 @@
   </div>
   <div class="clean-summary-sub" id="cleanSubLabel">–</div>
 </div>
+
+<div class="section-title">✅ Today <span class="pill" id="todayChoreCount">–</span></div>
+<div id="todayArea" class="task-groups"></div>
+
+<details class="upcoming-details">
+  <summary class="upcoming-summary">
+    <span class="section-title"><span class="disclosure-arrow">▶</span> 🗓️ Upcoming <span class="pill" id="upcomingCount">–</span></span>
+  </summary>
+  <div id="upcomingArea" class="task-groups upcoming-body"></div>
+</details>
+
 <div id="choreArea" class="chore-grid"></div>
 <div class="add-category-wrap" id="addCategoryWrap">
   <button class="ghost-btn" data-action="show-add-category">+ Add category</button>
@@ -922,6 +944,91 @@ function renderProgressSummary(chores) {
     : 'No due dates set yet — edit a chore to add one';
 }
 
+// a chore row's markup, shared between the per-category list, Today, and Upcoming sections.
+// categoryLabel is only shown when the row appears outside its own category's card (Today/Upcoming).
+function buildChoreRowHtml(s, todayStrVal, categoryLabel) {
+  const stale = staleness(s.lastDone);
+  const estBadge = s.duration ? `<span class="est-badge" title="Time estimate">⏱ ${escapeHtml(s.duration)}</span>` : '';
+  const recur = recurLabel(s);
+  const recurBadge = recur ? `<span class="recur-badge" title="Recurring cycle">🔁 ${escapeHtml(recur)}</span>` : '';
+  const todaysMinutes = (s.timelog || []).filter(l => l.date === todayStrVal).reduce((sum, l) => sum + l.minutes, 0);
+  const logBadge = todaysMinutes ? `<span class="log-badge" title="Logged today">✅ ${todaysMinutes}m</span>` : '';
+  const noteBadge = s.notes ? `<span class="est-badge" title="${escapeHtml(s.notes)}">📝</span>` : '';
+  const dueChip = fmtDueChip(s.dueDate, 'due-badge');
+  const dueBadge = dueChip ? `<span class="${dueChip.cls}" title="Due date">📅 ${dueChip.label}</span>` : '';
+  const catBadge = categoryLabel ? `<span class="cat-badge">${escapeHtml(categoryLabel)}</span>` : '';
+  return `
+    <div class="sub-row" data-id="${s.id}">
+      <div class="sub-checkbox ${s.checked ? 'checked' : ''}" data-action="toggle-sub" data-id="${s.id}">${s.checked ? '✓' : ''}</div>
+      <div class="sub-name ${s.checked ? 'checked' : ''}">${escapeHtml(s.name)}</div>
+      <div class="badge-row">${catBadge}${dueBadge}${estBadge}${recurBadge}${logBadge}${noteBadge}</div>
+      <div class="last-cleaned ${stale}">${fmtRelative(s.lastDone)}</div>
+      <button class="icon-btn" data-action="edit-task" data-id="${s.id}" title="Edit chore">✏️</button>
+    </div>`;
+}
+
+function renderTodaySection(chores, categoriesList) {
+  const el = document.getElementById('todayArea');
+  const catNameById = {};
+  categoriesList.forEach(c => { catNameById[c.id] = c.name; });
+  const todayStrVal = todayStr();
+  const items = chores
+    .filter(c => c.dueDate === todayStrVal)
+    .sort((a, b) => {
+      const catA = catNameById[a.categoryId] || '';
+      const catB = catNameById[b.categoryId] || '';
+      return catA.localeCompare(catB) || a.name.localeCompare(b.name);
+    });
+  document.getElementById('todayChoreCount').textContent = items.length + (items.length === 1 ? ' chore' : ' chores');
+  el.innerHTML = items.length
+    ? `<div class="task-group">${items.map(c => buildChoreRowHtml(c, todayStrVal, catNameById[c.categoryId])).join('')}</div>`
+    : '<div class="task-group"><div class="empty-note">Nothing due today. 🎉</div></div>';
+}
+
+function groupChoresByDay(chores) {
+  const groups = {};
+  chores.forEach(c => {
+    if (!c.dueDate) return;
+    (groups[c.dueDate] = groups[c.dueDate] || []).push(c);
+  });
+  return Object.keys(groups).sort().map(dateStr => ({ dateStr, chores: groups[dateStr] }));
+}
+function dayHeaderLabel(dateStr) {
+  const chip = fmtDueChip(dateStr);
+  if (!chip) return dateStr;
+  if (chip.diffDays < 0) return 'Overdue · ' + new Date(dateStr + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  if (chip.diffDays === 0) return 'Today';
+  if (chip.diffDays === 1) return 'Tomorrow';
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+function renderUpcomingSection(chores, categoriesList) {
+  const el = document.getElementById('upcomingArea');
+  const catNameById = {};
+  categoriesList.forEach(c => { catNameById[c.id] = c.name; });
+  const todayStrVal = todayStr();
+  const scheduled = chores.filter(c => c.dueDate);
+  document.getElementById('upcomingCount').textContent = scheduled.length + (scheduled.length === 1 ? ' chore' : ' chores');
+  if (!scheduled.length) {
+    el.innerHTML = '<div class="empty-note">No upcoming chores scheduled yet.</div>';
+    return;
+  }
+  const groups = groupChoresByDay(scheduled);
+  el.innerHTML = groups.map(g => {
+    const chip = fmtDueChip(g.dateStr);
+    const headerCls = 'task-group-header' + (chip && chip.diffDays < 0 ? ' overdue' : '');
+    const rows = g.chores
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(c => buildChoreRowHtml(c, todayStrVal, catNameById[c.categoryId]))
+      .join('');
+    return `
+      <div class="task-group">
+        <div class="${headerCls}">${dayHeaderLabel(g.dateStr)} · ${g.chores.length}</div>
+        ${rows}
+      </div>`;
+  }).join('');
+}
+
 function renderChores() {
   const el = document.getElementById('choreArea');
   const data = loadChoresData();
@@ -929,6 +1036,8 @@ function renderChores() {
   const todayStrVal = todayStr();
 
   renderProgressSummary(data.chores);
+  renderTodaySection(data.chores, data.categories);
+  renderUpcomingSection(data.chores, data.categories);
 
   const cards = categories.map(cat => {
     const subs = data.chores.filter(c => c.categoryId === cat.id);
@@ -953,27 +1062,13 @@ function renderChores() {
     }
 
     let checkedCount = 0;
-    const subRows = subs.map(s => {
-      if (s.checked) checkedCount++;
-      const stale = staleness(s.lastDone);
-      const estBadge = s.duration ? `<span class="est-badge" title="Time estimate">⏱ ${escapeHtml(s.duration)}</span>` : '';
-      const recur = recurLabel(s);
-      const recurBadge = recur ? `<span class="recur-badge" title="Recurring cycle">🔁 ${escapeHtml(recur)}</span>` : '';
-      const todaysMinutes = (s.timelog || []).filter(l => l.date === todayStrVal).reduce((sum, l) => sum + l.minutes, 0);
-      const logBadge = todaysMinutes ? `<span class="log-badge" title="Logged today">✅ ${todaysMinutes}m</span>` : '';
-      const noteBadge = s.notes ? `<span class="est-badge" title="${escapeHtml(s.notes)}">📝</span>` : '';
-      const dueChip = fmtDueChip(s.dueDate, 'due-badge');
-      const dueBadge = dueChip ? `<span class="${dueChip.cls}" title="Due date">📅 ${dueChip.label}</span>` : '';
-      return `
-        <div class="sub-row" data-id="${s.id}">
-          <div class="sub-checkbox ${s.checked ? 'checked' : ''}" data-action="toggle-sub" data-id="${s.id}">${s.checked ? '✓' : ''}</div>
-          <div class="sub-name ${s.checked ? 'checked' : ''}">${escapeHtml(s.name)}</div>
-          <div class="badge-row">${dueBadge}${estBadge}${recurBadge}${logBadge}${noteBadge}</div>
-          <div class="last-cleaned ${stale}">${fmtRelative(s.lastDone)}</div>
-          <button class="icon-btn" data-action="edit-task" data-id="${s.id}" title="Edit chore">✏️</button>
-        </div>`;
-    }).join('');
+    subs.forEach(c => { if (c.checked) checkedCount++; });
     const pct = Math.round((checkedCount / subs.length) * 100);
+    // recurring chores that are completed disappear from this list until their next occurrence
+    const visibleSubs = subs.filter(c => !(c.checked && c.recurEvery && c.recurUnit));
+    const bodyHtml = visibleSubs.length
+      ? visibleSubs.map(s => buildChoreRowHtml(s, todayStrVal, null)).join('')
+      : '<div class="no-subs">All done for now — nothing due until the next cycle. 🎉</div>';
     return `
       <div class="chore-card">
         <div class="chore-card-head">
@@ -981,7 +1076,7 @@ function renderChores() {
           ${headActions}
         </div>
         <div class="chore-bar-wrap"><div class="chore-bar-fill" style="width:${pct}%"></div></div>
-        ${subRows}
+        ${bodyHtml}
         <div class="add-row"><button class="ghost-btn" data-action="show-add-task" data-id="${cat.id}">+ Add chore</button></div>
       </div>`;
   }).join('');
