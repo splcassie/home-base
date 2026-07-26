@@ -1,5 +1,5 @@
-const CACHE_NAME = 'cassie-home-base-v8';
-const SHELL_FILES = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE_NAME = 'cassie-home-base-v9';
+const SHELL_FILES = ['./index.html', './styles.css', './app.js', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
